@@ -17,6 +17,14 @@ type NotificationSectionData = {
   rows: NotificationRow[];
 };
 
+type DetailedNotificationRow = NotificationRow & {
+  description: string;
+};
+
+type DetailedNotificationSectionData = Omit<NotificationSectionData, 'rows'> & {
+  rows: DetailedNotificationRow[];
+};
+
 type LanguageKey = 'memberArea' | 'email' | 'app';
 type Locale = 'en' | 'id';
 
@@ -117,13 +125,114 @@ const sections: NotificationSectionData[] = [
 
 const languageOptions = ['English', 'Thai', 'Klingon', 'Spanish', 'Portuguese', 'Vietnamese', 'Arabic'];
 
+const detailedSections: DetailedNotificationSectionData[] = [
+  {
+    id: 'account',
+    title: 'Account & Security',
+    tone: 'error',
+    icon: 'user',
+    rows: [
+      {
+        label: 'Registration and Verification',
+        description: 'Important updates about your registration and verification',
+        values: { inApp: true, email: true, push: false },
+      },
+      {
+        label: 'Accounts',
+        description: 'Account updates and important notices',
+        values: { inApp: true, email: false, push: true },
+      },
+    ],
+  },
+  {
+    id: 'funds',
+    title: 'Funds & Trading',
+    tone: 'info',
+    icon: 'chart',
+    rows: [
+      {
+        label: 'Deposits',
+        description: 'Deposit confirmations and status updates',
+        values: { inApp: true, email: false, push: false },
+      },
+      {
+        label: 'Withdrawals',
+        description: 'Withdrawal confirmations and status updates',
+        values: { inApp: false, email: true, push: true },
+      },
+      {
+        label: 'Strategies',
+        description: 'Updates about strategy subscriptions and performance',
+        values: { inApp: true, email: false, push: false },
+      },
+      {
+        label: 'Local Depositor',
+        description: 'Updates and news for Local Depositor partners',
+        values: { inApp: true, email: false, push: true },
+      },
+    ],
+  },
+  {
+    id: 'support',
+    title: 'Support & Communications',
+    tone: 'success',
+    icon: 'chat',
+    rows: [
+      {
+        label: 'Tickets',
+        description: 'Updates about your support tickets',
+        values: { inApp: true, email: false, push: true },
+      },
+      {
+        label: 'Voice messages',
+        description: 'Voice message notifications and updates',
+        values: { inApp: false, email: true, push: true },
+      },
+    ],
+  },
+  {
+    id: 'marketing',
+    title: 'Marketing & Programs',
+    tone: 'warning',
+    icon: 'gift',
+    rows: [
+      {
+        label: 'Bonuses',
+        description: 'Bonus offers, promotions and rewards',
+        values: { inApp: true, email: false, push: false },
+      },
+      {
+        label: 'Contests',
+        description: 'Contest announcements and results',
+        values: { inApp: false, email: true, push: false },
+      },
+      {
+        label: 'Partner Program',
+        description: 'Updates and news about our Partner Program',
+        values: { inApp: true, email: true, push: false },
+      },
+      {
+        label: 'Valetax Store',
+        description: 'Redeem bonuses for exclusive rewards and offers',
+        values: { inApp: true, email: false, push: true },
+      },
+    ],
+  },
+];
+
 function App() {
-  const locale: Locale = window.location.pathname.includes('index-indonesian') ? 'id' : 'en';
+  const path = window.location.pathname;
+  const locale: Locale = path.includes('index-indonesian') ? 'id' : 'en';
+  const isDetailedVariant = path.includes('index-updates');
 
   useEffect(() => {
     document.documentElement.lang = locale === 'id' ? 'id' : 'en';
     document.title = locale === 'id' ? 'Pengaturan Notifikasi Valetax' : 'Valetax Notifications Settings';
-  }, [locale]);
+  }, [locale, isDetailedVariant]);
+
+  if (isDetailedVariant) {
+    return <DetailedSettingsPage />;
+  }
 
   return <SettingsPage locale={locale} />;
 }
@@ -455,6 +564,213 @@ function Toast({ locale, visible }: { locale: Locale; visible: boolean }) {
     <div className={`toast ${visible ? 'visible' : ''}`} role="status" aria-live="polite">
       {t(locale, 'Changes saved')}
     </div>
+  );
+}
+
+function DetailedSettingsPage() {
+  const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>({
+    account: true,
+    funds: true,
+    support: true,
+    marketing: true,
+  });
+  const [settings, setSettings] = useState(() =>
+    Object.fromEntries(
+      detailedSections.map((section) => [
+        section.id,
+        section.rows.map((row) => ({ label: row.label, description: row.description, values: { ...row.values } })),
+      ]),
+    ) as Record<SectionId, DetailedNotificationRow[]>,
+  );
+  const [languages, setLanguages] = useState<Record<LanguageKey, string>>({
+    memberArea: 'English',
+    email: 'Thai',
+    app: 'Klingon',
+  });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+
+  const toggleNotification = (sectionId: SectionId, rowIndex: number, channel: Channel) => {
+    setSettings((current) => ({
+      ...current,
+      [sectionId]: current[sectionId].map((row, index) =>
+        index === rowIndex ? { ...row, values: { ...row.values, [channel]: !row.values[channel] } } : row,
+      ),
+    }));
+  };
+
+  return (
+    <main className="demo-shell">
+      <section className="phone-frame detailed-frame" aria-label="Settings Notifications detailed prototype">
+        <Header />
+        <div className="page-content detailed-content">
+          <h1>Settings</h1>
+          <SettingsTabs locale="en" />
+          <section className="updates-intro">
+            <span className="section-icon neutral">
+              <Icon name="bell" />
+            </span>
+            <span>
+              <h2>Manage how you receive updates</h2>
+              <p>Choose where you want to receive each type of notification</p>
+            </span>
+          </section>
+          <div className="detailed-list">
+            {detailedSections.map((section) => (
+              <DetailedNotificationSection
+                key={section.id}
+                section={section}
+                rows={settings[section.id]}
+                expanded={openSections[section.id]}
+                onToggleOpen={() =>
+                  setOpenSections((current) => ({ ...current, [section.id]: !current[section.id] }))
+                }
+                onToggle={(rowIndex, channel) => toggleNotification(section.id, rowIndex, channel)}
+              />
+            ))}
+          </div>
+          <DetailedNotificationLanguages values={languages} onChange={setLanguages} />
+          <SaveButton locale="en" onSave={() => setSaved(true)} />
+        </div>
+        <Toast locale="en" visible={saved} />
+      </section>
+    </main>
+  );
+}
+
+function DetailedNotificationSection({
+  section,
+  rows,
+  expanded,
+  onToggleOpen,
+  onToggle,
+}: {
+  section: DetailedNotificationSectionData;
+  rows: DetailedNotificationRow[];
+  expanded: boolean;
+  onToggleOpen: () => void;
+  onToggle: (rowIndex: number, channel: Channel) => void;
+}) {
+  return (
+    <article className="detailed-section">
+      <button
+        className="section-heading detailed-heading"
+        type="button"
+        aria-expanded={expanded}
+        onClick={onToggleOpen}
+      >
+        <span className={`section-icon ${section.tone}`}>
+          <Icon name={section.icon} />
+        </span>
+        <span className="section-title">{section.title}</span>
+        <span className="manage">
+          Manage
+          <span className={`caret ${expanded ? 'up' : ''}`} aria-hidden="true" />
+        </span>
+      </button>
+      {expanded && (
+        <div className="detailed-rows">
+          {rows.map((row, rowIndex) => (
+            <DetailedNotificationRowItem
+              key={row.label}
+              row={row}
+              rowIndex={rowIndex}
+              sectionTitle={section.title}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function DetailedNotificationRowItem({
+  row,
+  rowIndex,
+  sectionTitle,
+  onToggle,
+}: {
+  row: DetailedNotificationRow;
+  rowIndex: number;
+  sectionTitle: string;
+  onToggle: (rowIndex: number, channel: Channel) => void;
+}) {
+  const channelLabels: Record<Channel, string> = {
+    inApp: 'In-App',
+    email: 'Email',
+    push: 'Push',
+  };
+
+  return (
+    <div className="detailed-row">
+      <div className="detailed-row-copy">
+        <h3>{row.label}</h3>
+        <p>{row.description}</p>
+      </div>
+      <div className="detailed-channel-row">
+        {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
+          <div className="detailed-channel" key={channel}>
+            <span>{channelLabels[channel]}</span>
+            <NotificationToggle
+              checked={row.values[channel]}
+              label={`${sectionTitle}: ${row.label} ${channelLabels[channel]}`}
+              onClick={() => onToggle(rowIndex, channel)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailedNotificationLanguages({
+  values,
+  onChange,
+}: {
+  values: Record<LanguageKey, string>;
+  onChange: (values: Record<LanguageKey, string>) => void;
+}) {
+  return (
+    <section className="languages detailed-languages" aria-labelledby="detailed-languages-title">
+      <div className="languages-heading">
+        <span className="section-icon neutral">
+          <Icon name="bell" />
+        </span>
+        <span>
+          <h2 id="detailed-languages-title">Notification languages</h2>
+        </span>
+      </div>
+      <div className="select-stack">
+        <SelectField
+          locale="en"
+          label="Member Area Notifications"
+          value={values.memberArea}
+          onChange={(value) => onChange({ ...values, memberArea: value })}
+        />
+        <SelectField
+          locale="en"
+          label="Email Notifications"
+          value={values.email}
+          onChange={(value) => onChange({ ...values, email: value })}
+        />
+        <SelectField
+          locale="en"
+          label="App Notifications"
+          value={values.app}
+          onChange={(value) => onChange({ ...values, app: value })}
+        />
+      </div>
+      <p className="language-note">
+        <Icon name="info" />
+        Language changes may take a few minutes to apply
+      </p>
+    </section>
   );
 }
 

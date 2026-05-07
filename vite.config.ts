@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         indonesian: 'index-indonesian.html',
+        updates: 'index-updates.html',
       },
     },
   },
