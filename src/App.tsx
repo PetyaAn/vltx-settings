@@ -2,7 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Channel = 'inApp' | 'email' | 'push';
 type SectionId = 'account' | 'funds' | 'support' | 'marketing';
-type IconName = 'user' | 'chart' | 'chat' | 'gift' | 'bell' | 'desktop' | 'mail' | 'phone' | 'info' | 'menu' | 'profile';
+type IconName =
+  | 'user'
+  | 'chart'
+  | 'chat'
+  | 'gift'
+  | 'bell'
+  | 'desktop'
+  | 'mail'
+  | 'phone'
+  | 'info'
+  | 'menu'
+  | 'profile'
+  | 'shield'
+  | 'login'
+  | 'password'
+  | 'wallet'
+  | 'cash';
 
 type NotificationRow = {
   label: string;
@@ -27,6 +43,24 @@ type DetailedNotificationSectionData = Omit<NotificationSectionData, 'rows'> & {
 
 type LanguageKey = 'memberArea' | 'email' | 'app';
 type Locale = 'en' | 'id';
+type CardSectionId = 'account' | 'funds';
+
+type CardNotification = {
+  id: string;
+  title: string;
+  description: string;
+  icon: IconName;
+  tone: 'red' | 'blue';
+  values: Record<Channel, boolean>;
+};
+
+type CardNotificationSection = {
+  id: CardSectionId;
+  title: string;
+  icon: IconName;
+  tone: 'red' | 'blue';
+  cards: CardNotification[];
+};
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {},
@@ -220,15 +254,63 @@ const detailedSections: DetailedNotificationSectionData[] = [
   },
 ];
 
+const cardSections: CardNotificationSection[] = [
+  {
+    id: 'account',
+    title: 'Account & Security',
+    icon: 'shield',
+    tone: 'red',
+    cards: [
+      {
+        id: 'new-login',
+        title: 'New Login Alert',
+        description: 'Instant notification when a new device accesses your account.',
+        icon: 'login',
+        tone: 'red',
+        values: { inApp: true, email: true, push: false },
+      },
+      {
+        id: 'password-changes',
+        title: 'Password Changes',
+        description: 'Confirmation of any security credential updates.',
+        icon: 'password',
+        tone: 'red',
+        values: { inApp: true, email: true, push: true },
+      },
+    ],
+  },
+  {
+    id: 'funds',
+    title: 'Funds & Transfers',
+    icon: 'wallet',
+    tone: 'blue',
+    cards: [
+      {
+        id: 'deposits-withdrawals',
+        title: 'Deposits & Withdrawals',
+        description: 'Status updates on all incoming and outgoing capital.',
+        icon: 'cash',
+        tone: 'blue',
+        values: { inApp: true, email: true, push: true },
+      },
+    ],
+  },
+];
+
 function App() {
   const path = window.location.pathname;
   const locale: Locale = path.includes('index-indonesian') ? 'id' : 'en';
   const isDetailedVariant = path.includes('index-updates');
+  const isCardVariant = path.includes('index-cards');
 
   useEffect(() => {
     document.documentElement.lang = locale === 'id' ? 'id' : 'en';
     document.title = locale === 'id' ? 'Pengaturan Notifikasi Valetax' : 'Valetax Notifications Settings';
-  }, [locale, isDetailedVariant]);
+  }, [locale, isDetailedVariant, isCardVariant]);
+
+  if (isCardVariant) {
+    return <CardSettingsPage />;
+  }
 
   if (isDetailedVariant) {
     return <DetailedSettingsPage />;
@@ -774,6 +856,138 @@ function DetailedNotificationLanguages({
   );
 }
 
+function CardSettingsPage() {
+  const [settings, setSettings] = useState(() =>
+    Object.fromEntries(
+      cardSections.map((section) => [
+        section.id,
+        section.cards.map((card) => ({ ...card, values: { ...card.values } })),
+      ]),
+    ) as Record<CardSectionId, CardNotification[]>,
+  );
+
+  const toggleCardNotification = (sectionId: CardSectionId, cardIndex: number, channel: Channel) => {
+    setSettings((current) => ({
+      ...current,
+      [sectionId]: current[sectionId].map((card, index) =>
+        index === cardIndex ? { ...card, values: { ...card.values, [channel]: !card.values[channel] } } : card,
+      ),
+    }));
+  };
+
+  return (
+    <main className="cards-demo-shell">
+      <section className="cards-phone-frame" aria-label="Card based notifications prototype">
+        <div className="cards-page">
+          {cardSections.map((section) => (
+            <CardNotificationSection
+              key={section.id}
+              section={section}
+              cards={settings[section.id]}
+              onToggle={(cardIndex, channel) => toggleCardNotification(section.id, cardIndex, channel)}
+            />
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function CardNotificationSection({
+  section,
+  cards,
+  onToggle,
+}: {
+  section: CardNotificationSection;
+  cards: CardNotification[];
+  onToggle: (cardIndex: number, channel: Channel) => void;
+}) {
+  return (
+    <section className="card-section" aria-labelledby={`${section.id}-card-title`}>
+      <div className="card-section-heading">
+        <span className={`card-section-icon ${section.tone}`}>
+          <Icon name={section.icon} />
+        </span>
+        <h1 id={`${section.id}-card-title`}>{section.title}</h1>
+      </div>
+      <div className="notification-card-stack">
+        {cards.map((card, cardIndex) => (
+          <NotificationCard
+            key={card.id}
+            card={card}
+            sectionTitle={section.title}
+            onToggle={(channel) => onToggle(cardIndex, channel)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NotificationCard({
+  card,
+  sectionTitle,
+  onToggle,
+}: {
+  card: CardNotification;
+  sectionTitle: string;
+  onToggle: (channel: Channel) => void;
+}) {
+  const channelLabels: Record<Channel, string> = {
+    inApp: 'IN-APP',
+    email: 'EMAIL',
+    push: 'PUSH',
+  };
+
+  return (
+    <article className="notification-card">
+      <div className="notification-card-copy">
+        <span className={`notification-card-icon ${card.tone}`}>
+          <Icon name={card.icon} />
+        </span>
+        <div>
+          <h2>{card.title}</h2>
+          <p>{card.description}</p>
+        </div>
+      </div>
+      <div className="notification-card-controls" aria-label={`${sectionTitle}: ${card.title} channels`}>
+        {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
+          <div className="notification-card-control" key={channel}>
+            <span>{channelLabels[channel]}</span>
+            <LargeNotificationToggle
+              checked={card.values[channel]}
+              label={`${card.title} ${channelLabels[channel]}`}
+              onClick={() => onToggle(channel)}
+            />
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function LargeNotificationToggle({
+  checked,
+  label,
+  onClick,
+}: {
+  checked: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`large-toggle ${checked ? 'checked' : ''}`}
+      aria-pressed={checked}
+      aria-label={label}
+      onClick={onClick}
+    >
+      <span />
+    </button>
+  );
+}
+
 function Icon({ name }: { name: IconName }) {
   const common = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': true } as const;
 
@@ -864,6 +1078,48 @@ function Icon({ name }: { name: IconName }) {
         <svg {...common}>
           <path d="M12 11.2a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2Z" fill="currentColor" stroke="none" />
           <path d="M5.2 20c.8-4 3-6 6.8-6s6 2 6.8 6H5.2Z" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'shield':
+      return (
+        <svg {...common}>
+          <path d="M12 3 5.5 5.4v5.2c0 4.2 2.4 7.5 6.5 9.4 4.1-1.9 6.5-5.2 6.5-9.4V5.4L12 3Z" fill="currentColor" stroke="none" />
+          <path d="M12 6v10" stroke="#fff" strokeWidth="2.1" />
+          <path d="M8.3 10.2h7.4" stroke="#fff" strokeWidth="2.1" />
+        </svg>
+      );
+    case 'login':
+      return (
+        <svg {...common}>
+          <path d="M13 5h6v14h-6" strokeWidth="2.5" />
+          <path d="M4 12h10" strokeWidth="2.5" />
+          <path d="m10 7 5 5-5 5" strokeWidth="2.5" />
+        </svg>
+      );
+    case 'password':
+      return (
+        <svg {...common}>
+          <path d="M5 9.2h14" strokeWidth="2.4" />
+          <path d="M7 17h10" strokeWidth="2.4" />
+          <path d="M7 6.5 8.7 10" strokeWidth="2.4" />
+          <path d="m12 6.5-.1 3.5" strokeWidth="2.4" />
+          <path d="M17 6.5 15.3 10" strokeWidth="2.4" />
+        </svg>
+      );
+    case 'wallet':
+      return (
+        <svg {...common}>
+          <path d="M4 7.5h15a2 2 0 0 1 2 2v8H5.5A2.5 2.5 0 0 1 3 15V6.5A2.5 2.5 0 0 1 5.5 4H18v3.5" strokeWidth="2.4" />
+          <path d="M15.5 12h5v4h-5a2 2 0 0 1 0-4Z" strokeWidth="2.4" />
+        </svg>
+      );
+    case 'cash':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16v10H4V7Z" strokeWidth="2.3" />
+          <path d="M8 7v10" strokeWidth="2.3" />
+          <path d="M16 7v10" strokeWidth="2.3" />
+          <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" strokeWidth="2.3" />
         </svg>
       );
   }

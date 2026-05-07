@@ -10,6 +10,7 @@ export default defineConfig({
         main: 'index.html',
         indonesian: 'index-indonesian.html',
         updates: 'index-updates.html',
+        cards: 'index-cards.html',
       },
     },
   },
