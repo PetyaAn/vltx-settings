@@ -46,11 +46,8 @@ type Locale = 'en' | 'id';
 type CardSectionId = SectionId;
 
 type CardNotification = {
-  id: string;
-  title: string;
+  label: string;
   description: string;
-  icon: IconName;
-  tone: 'red' | 'blue';
   values: Record<Channel, boolean>;
 };
 
@@ -258,40 +255,46 @@ const cardSections: CardNotificationSection[] = [
   {
     id: 'account',
     title: 'Account & Security',
-    icon: 'shield',
+    icon: 'user',
     tone: 'red',
     cards: [
       {
-        id: 'new-login',
-        title: 'New Login Alert',
-        description: 'Instant notification when a new device accesses your account.',
-        icon: 'login',
-        tone: 'red',
+        label: 'Registration and Verification',
+        description: 'Important updates about your registration and verification',
         values: { inApp: true, email: true, push: false },
       },
       {
-        id: 'password-changes',
-        title: 'Password Changes',
-        description: 'Confirmation of any security credential updates.',
-        icon: 'password',
-        tone: 'red',
-        values: { inApp: true, email: true, push: true },
+        label: 'Accounts',
+        description: 'Account updates and important notices',
+        values: { inApp: true, email: false, push: true },
       },
     ],
   },
   {
     id: 'funds',
     title: 'Funds & Trading',
-    icon: 'wallet',
+    icon: 'chart',
     tone: 'blue',
     cards: [
       {
-        id: 'deposits-withdrawals',
-        title: 'Deposits & Withdrawals',
-        description: 'Status updates on all incoming and outgoing capital.',
-        icon: 'cash',
-        tone: 'blue',
-        values: { inApp: true, email: true, push: true },
+        label: 'Deposits',
+        description: 'Deposit confirmations and status updates',
+        values: { inApp: true, email: false, push: false },
+      },
+      {
+        label: 'Withdrawals',
+        description: 'Withdrawal confirmations and status updates',
+        values: { inApp: false, email: true, push: true },
+      },
+      {
+        label: 'Strategies',
+        description: 'Updates about strategy subscriptions and performance',
+        values: { inApp: true, email: false, push: false },
+      },
+      {
+        label: 'Local Depositor',
+        description: 'Updates and news for Local Depositor partners',
+        values: { inApp: true, email: false, push: true },
       },
     ],
   },
@@ -302,19 +305,13 @@ const cardSections: CardNotificationSection[] = [
     tone: 'blue',
     cards: [
       {
-        id: 'tickets',
-        title: 'Tickets',
-        description: 'Updates about your support tickets.',
-        icon: 'chat',
-        tone: 'blue',
+        label: 'Tickets',
+        description: 'Updates about your support tickets',
         values: { inApp: true, email: false, push: true },
       },
       {
-        id: 'voice-messages',
-        title: 'Voice messages',
-        description: 'Voice message notifications and updates.',
-        icon: 'chat',
-        tone: 'blue',
+        label: 'Voice messages',
+        description: 'Voice message notifications and updates',
         values: { inApp: false, email: true, push: true },
       },
     ],
@@ -326,35 +323,23 @@ const cardSections: CardNotificationSection[] = [
     tone: 'blue',
     cards: [
       {
-        id: 'bonuses',
-        title: 'Bonuses',
-        description: 'Bonus offers, promotions and rewards.',
-        icon: 'gift',
-        tone: 'blue',
+        label: 'Bonuses',
+        description: 'Bonus offers, promotions and rewards',
         values: { inApp: true, email: false, push: false },
       },
       {
-        id: 'contests',
-        title: 'Contests',
-        description: 'Contest announcements and results.',
-        icon: 'gift',
-        tone: 'blue',
+        label: 'Contests',
+        description: 'Contest announcements and results',
         values: { inApp: false, email: true, push: false },
       },
       {
-        id: 'partner-program',
-        title: 'Partner Program',
-        description: 'Updates and news about our Partner Program.',
-        icon: 'gift',
-        tone: 'blue',
+        label: 'Partner Program',
+        description: 'Updates and news about our Partner Program',
         values: { inApp: true, email: true, push: false },
       },
       {
-        id: 'valetax-store',
-        title: 'Valetax Store',
-        description: 'Redeem bonuses for exclusive rewards and offers.',
-        icon: 'gift',
-        tone: 'blue',
+        label: 'Valetax Store',
+        description: 'Redeem bonuses for exclusive rewards and offers',
         values: { inApp: true, email: false, push: true },
       },
     ],
@@ -1004,7 +989,7 @@ function CardNotificationSection({
       <div className="notification-card-stack">
         {cards.map((card, cardIndex) => (
           <NotificationCard
-            key={card.id}
+            key={card.label}
             card={card}
             sectionTitle={section.title}
             onToggle={(channel) => onToggle(cardIndex, channel)}
@@ -1033,21 +1018,18 @@ function NotificationCard({
   return (
     <article className="notification-card">
       <div className="notification-card-copy">
-        <span className={`section-icon notification-card-icon ${card.tone === 'red' ? 'error' : 'info'}`}>
-          <Icon name={card.icon} />
-        </span>
         <div>
-          <h2>{card.title}</h2>
+          <h2>{card.label}</h2>
           <p>{card.description}</p>
         </div>
       </div>
-      <div className="notification-card-controls" aria-label={`${sectionTitle}: ${card.title} channels`}>
+      <div className="notification-card-controls" aria-label={`${sectionTitle}: ${card.label} channels`}>
         {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
           <div className="notification-card-control" key={channel}>
             <span>{channelLabels[channel]}</span>
             <LargeNotificationToggle
               checked={card.values[channel]}
-              label={`${card.title} ${channelLabels[channel]}`}
+              label={`${card.label} ${channelLabels[channel]}`}
               onClick={() => onToggle(channel)}
             />
           </div>

@@ -639,25 +639,7 @@ h1 {
 }
 
 .notification-card-copy {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.notification-card-icon {
-  width: 42px;
-  height: 42px;
-  flex-basis: 42px;
-}
-
-.notification-card-icon svg {
-  width: 24px;
-  height: 24px;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  display: block;
 }
 
 .notification-card-copy h2 {
