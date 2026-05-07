@@ -1,0 +1,4 @@
+node_modules/
+dist/
+*.local
+screenshot-*.png
