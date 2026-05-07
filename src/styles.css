@@ -587,141 +587,102 @@ h1 {
   line-height: 18px;
 }
 
-.cards-demo-shell {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  background: #eef1f3;
-}
-
 .cards-phone-frame {
-  width: min(100vw, 430px);
-  min-height: 100vh;
   background: #ffffff;
-  color: #050505;
 }
 
 .cards-page {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 22px 16px 28px;
+  gap: 16px;
+  padding-bottom: 28px;
+}
+
+.cards-intro {
+  margin-top: 16px;
 }
 
 .card-section {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
+  padding: 0 16px 16px;
+  border-bottom: 1px solid #ededed;
 }
 
 .card-section-heading {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 10px;
+  min-height: 42px;
+  padding: 0;
 }
 
 .card-section-heading h1 {
   margin: 0;
   padding: 0;
-  color: #050505;
-  font-size: 24px;
-  line-height: 30px;
-  font-weight: 800;
-}
-
-.card-section-icon {
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 34px;
-}
-
-.card-section-icon svg {
-  width: 32px;
-  height: 32px;
-}
-
-.card-section-icon.red {
-  color: #c4171f;
-}
-
-.card-section-icon.blue {
-  color: #0968db;
+  color: #272f3c;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
 }
 
 .notification-card-stack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .notification-card {
-  padding: 26px 26px 26px;
+  padding: 14px;
   background: #ffffff;
-  border: 1px solid #c8cbd1;
-  border-radius: 18px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  border: 1px solid #d7d9de;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .notification-card-copy {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 26px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
   align-items: start;
 }
 
 .notification-card-icon {
-  width: 64px;
-  height: 74px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
 }
 
 .notification-card-icon svg {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-}
-
-.notification-card-icon.red {
-  color: #c4171f;
-  background: #fff8f8;
-}
-
-.notification-card-icon.blue {
-  color: #0968db;
-  background: #f0f4ff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .notification-card-copy h2 {
-  margin: 2px 0 4px;
-  color: #050505;
-  font-size: 24px;
-  line-height: 30px;
-  font-weight: 800;
+  margin: 0 0 2px;
+  color: #272f3c;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
 .notification-card-copy p {
   margin: 0;
-  color: #4b4e57;
-  font-size: 24px;
-  line-height: 34px;
+  color: #5d5e63;
+  font-size: 12px;
+  line-height: 16px;
   font-weight: 400;
 }
 
 .notification-card-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 28px;
-  padding-top: 16px;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #eaebee;
 }
 
@@ -729,37 +690,37 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .notification-card-control > span {
-  color: #4b4e57;
-  font-size: 16px;
-  line-height: 20px;
-  font-weight: 800;
+  color: #5d5e63;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
 .large-toggle {
   position: relative;
-  width: 66px;
-  height: 33px;
+  width: 42px;
+  height: 24px;
   padding: 0;
   border-radius: 999px;
-  background: #dfdde0;
+  background: #bdbec2;
   transition: background-color 140ms ease;
 }
 
 .large-toggle.checked {
-  background: #2877e6;
+  background: #272f3c;
 }
 
 .large-toggle span {
   position: absolute;
-  top: 5px;
-  left: 6px;
-  width: 23px;
-  height: 23px;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
@@ -767,7 +728,7 @@ h1 {
 }
 
 .large-toggle.checked span {
-  transform: translateX(31px);
+  transform: translateX(18px);
 }
 
 @media (min-width: 431px) {
@@ -793,31 +754,5 @@ h1 {
 
   .event-name {
     font-size: 13px;
-  }
-}
-
-@media (max-width: 390px) {
-  .notification-card {
-    padding: 22px 20px;
-  }
-
-  .notification-card-copy {
-    grid-template-columns: 58px minmax(0, 1fr);
-    gap: 20px;
-  }
-
-  .notification-card-icon {
-    width: 58px;
-    height: 68px;
-  }
-
-  .notification-card-copy h2 {
-    font-size: 22px;
-    line-height: 28px;
-  }
-
-  .notification-card-copy p {
-    font-size: 22px;
-    line-height: 31px;
   }
 }

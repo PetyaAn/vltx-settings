@@ -43,7 +43,7 @@ type DetailedNotificationSectionData = Omit<NotificationSectionData, 'rows'> & {
 
 type LanguageKey = 'memberArea' | 'email' | 'app';
 type Locale = 'en' | 'id';
-type CardSectionId = 'account' | 'funds';
+type CardSectionId = SectionId;
 
 type CardNotification = {
   id: string;
@@ -281,7 +281,7 @@ const cardSections: CardNotificationSection[] = [
   },
   {
     id: 'funds',
-    title: 'Funds & Transfers',
+    title: 'Funds & Trading',
     icon: 'wallet',
     tone: 'blue',
     cards: [
@@ -292,6 +292,70 @@ const cardSections: CardNotificationSection[] = [
         icon: 'cash',
         tone: 'blue',
         values: { inApp: true, email: true, push: true },
+      },
+    ],
+  },
+  {
+    id: 'support',
+    title: 'Support & Communications',
+    icon: 'chat',
+    tone: 'blue',
+    cards: [
+      {
+        id: 'tickets',
+        title: 'Tickets',
+        description: 'Updates about your support tickets.',
+        icon: 'chat',
+        tone: 'blue',
+        values: { inApp: true, email: false, push: true },
+      },
+      {
+        id: 'voice-messages',
+        title: 'Voice messages',
+        description: 'Voice message notifications and updates.',
+        icon: 'chat',
+        tone: 'blue',
+        values: { inApp: false, email: true, push: true },
+      },
+    ],
+  },
+  {
+    id: 'marketing',
+    title: 'Marketing & Programs',
+    icon: 'gift',
+    tone: 'blue',
+    cards: [
+      {
+        id: 'bonuses',
+        title: 'Bonuses',
+        description: 'Bonus offers, promotions and rewards.',
+        icon: 'gift',
+        tone: 'blue',
+        values: { inApp: true, email: false, push: false },
+      },
+      {
+        id: 'contests',
+        title: 'Contests',
+        description: 'Contest announcements and results.',
+        icon: 'gift',
+        tone: 'blue',
+        values: { inApp: false, email: true, push: false },
+      },
+      {
+        id: 'partner-program',
+        title: 'Partner Program',
+        description: 'Updates and news about our Partner Program.',
+        icon: 'gift',
+        tone: 'blue',
+        values: { inApp: true, email: true, push: false },
+      },
+      {
+        id: 'valetax-store',
+        title: 'Valetax Store',
+        description: 'Redeem bonuses for exclusive rewards and offers.',
+        icon: 'gift',
+        tone: 'blue',
+        values: { inApp: true, email: false, push: true },
       },
     ],
   },
@@ -857,6 +921,12 @@ function DetailedNotificationLanguages({
 }
 
 function CardSettingsPage() {
+  const [languages, setLanguages] = useState<Record<LanguageKey, string>>({
+    memberArea: 'English',
+    email: 'Thai',
+    app: 'Klingon',
+  });
+  const [saved, setSaved] = useState(false);
   const [settings, setSettings] = useState(() =>
     Object.fromEntries(
       cardSections.map((section) => [
@@ -875,10 +945,28 @@ function CardSettingsPage() {
     }));
   };
 
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+
   return (
-    <main className="cards-demo-shell">
-      <section className="cards-phone-frame" aria-label="Card based notifications prototype">
-        <div className="cards-page">
+    <main className="demo-shell">
+      <section className="phone-frame cards-phone-frame" aria-label="Card based notifications prototype">
+        <Header />
+        <div className="page-content cards-page">
+          <h1>Settings</h1>
+          <SettingsTabs locale="en" />
+          <section className="updates-intro cards-intro">
+            <span className="section-icon neutral">
+              <Icon name="bell" />
+            </span>
+            <span>
+              <h2>Manage how you receive updates</h2>
+              <p>Choose where you want to receive each type of notification</p>
+            </span>
+          </section>
           {cardSections.map((section) => (
             <CardNotificationSection
               key={section.id}
@@ -887,7 +975,10 @@ function CardSettingsPage() {
               onToggle={(cardIndex, channel) => toggleCardNotification(section.id, cardIndex, channel)}
             />
           ))}
+          <DetailedNotificationLanguages values={languages} onChange={setLanguages} />
+          <SaveButton locale="en" onSave={() => setSaved(true)} />
         </div>
+        <Toast locale="en" visible={saved} />
       </section>
     </main>
   );
@@ -904,8 +995,8 @@ function CardNotificationSection({
 }) {
   return (
     <section className="card-section" aria-labelledby={`${section.id}-card-title`}>
-      <div className="card-section-heading">
-        <span className={`card-section-icon ${section.tone}`}>
+      <div className="section-heading card-section-heading">
+        <span className={`section-icon ${section.tone === 'red' ? 'error' : section.id === 'marketing' ? 'warning' : section.id === 'support' ? 'success' : 'info'}`}>
           <Icon name={section.icon} />
         </span>
         <h1 id={`${section.id}-card-title`}>{section.title}</h1>
@@ -942,7 +1033,7 @@ function NotificationCard({
   return (
     <article className="notification-card">
       <div className="notification-card-copy">
-        <span className={`notification-card-icon ${card.tone}`}>
+        <span className={`section-icon notification-card-icon ${card.tone === 'red' ? 'error' : 'info'}`}>
           <Icon name={card.icon} />
         </span>
         <div>
