@@ -18,6 +18,55 @@ type NotificationSectionData = {
 };
 
 type LanguageKey = 'memberArea' | 'email' | 'app';
+type Locale = 'en' | 'id';
+
+const translations: Record<Locale, Record<string, string>> = {
+  en: {},
+  id: {
+    'Settings': 'Pengaturan',
+    'Profile Information': 'Informasi Profil',
+    'Security': 'Keamanan',
+    'Notifications': 'Notifikasi',
+    'Shipping Address': 'Alamat Pengiriman',
+    'Account & Security': 'Akun & Keamanan',
+    'Funds & Trading': 'Dana & Perdagangan',
+    'Support & Communications': 'Dukungan & Komunikasi',
+    'Marketing & Programs': 'Pemasaran & Program',
+    'Manage': 'Kelola',
+    'In-App': 'Di Aplikasi',
+    'Email': 'Email',
+    'Push': 'Push',
+    'Registration and Verification': 'Pendaftaran dan Verifikasi',
+    'Accounts': 'Akun',
+    'Deposits': 'Deposit',
+    'Withdrawals': 'Penarikan',
+    'Strategies': 'Strategi',
+    'Local Depositor': 'Penyetor Lokal',
+    'Tickets': 'Tiket',
+    'Voice messages': 'Pesan Suara',
+    'Bonuses': 'Bonus',
+    'Contests': 'Kontes',
+    'Partner Program': 'Program Mitra',
+    'Valetax Store': 'Toko Valetax',
+    'Notification languages': 'Bahasa Notifikasi',
+    'Choose your preferred languages for each channel': 'Pilih bahasa pilihan untuk setiap kanal',
+    'Member Area Notifications': 'Notifikasi Area Anggota',
+    'Email Notifications': 'Notifikasi Email',
+    'App Notifications': 'Notifikasi Aplikasi',
+    'Language changes may take a few minutes to apply': 'Perubahan bahasa mungkin perlu beberapa menit untuk diterapkan',
+    'Save Changes': 'Simpan Perubahan',
+    'Changes saved': 'Perubahan disimpan',
+    'English': 'Inggris',
+    'Thai': 'Thailand',
+    'Klingon': 'Klingon',
+    'Spanish': 'Spanyol',
+    'Portuguese': 'Portugis',
+    'Vietnamese': 'Vietnam',
+    'Arabic': 'Arab',
+  },
+};
+
+const t = (locale: Locale, text: string) => translations[locale][text] ?? text;
 
 const sections: NotificationSectionData[] = [
   {
@@ -69,10 +118,17 @@ const sections: NotificationSectionData[] = [
 const languageOptions = ['English', 'Thai', 'Klingon', 'Spanish', 'Portuguese', 'Vietnamese', 'Arabic'];
 
 function App() {
-  return <SettingsPage />;
+  const locale: Locale = window.location.pathname.includes('index-indonesian') ? 'id' : 'en';
+
+  useEffect(() => {
+    document.documentElement.lang = locale === 'id' ? 'id' : 'en';
+    document.title = locale === 'id' ? 'Pengaturan Notifikasi Valetax' : 'Valetax Notifications Settings';
+  }, [locale]);
+
+  return <SettingsPage locale={locale} />;
 }
 
-function SettingsPage() {
+function SettingsPage({ locale }: { locale: Locale }) {
   const [openSection, setOpenSection] = useState<SectionId>('account');
   const [settings, setSettings] = useState(() =>
     Object.fromEntries(
@@ -115,21 +171,22 @@ function SettingsPage() {
 
   return (
     <main className="demo-shell">
-      <section className="phone-frame" aria-label="Settings Notifications prototype">
+      <section className="phone-frame" aria-label={`${t(locale, 'Settings')} ${t(locale, 'Notifications')} prototype`}>
         <Header />
         <div className="page-content">
-          <h1>Settings</h1>
-          <SettingsTabs />
+          <h1>{t(locale, 'Settings')}</h1>
+          <SettingsTabs locale={locale} />
           <NotificationAccordion
+            locale={locale}
             openSection={openSection}
             rowsBySection={sectionRows}
             onOpen={setOpenSection}
             onToggle={toggleNotification}
           />
-          <NotificationLanguages values={languages} onChange={setLanguages} />
-          <SaveButton onSave={() => setSaved(true)} />
+          <NotificationLanguages locale={locale} values={languages} onChange={setLanguages} />
+          <SaveButton locale={locale} onSave={() => setSaved(true)} />
         </div>
-        <Toast visible={saved} />
+        <Toast locale={locale} visible={saved} />
       </section>
     </main>
   );
@@ -159,14 +216,14 @@ function Header() {
   );
 }
 
-function SettingsTabs() {
+function SettingsTabs({ locale }: { locale: Locale }) {
   const tabs = ['Profile Information', 'Security', 'Notifications', 'Shipping Address'];
 
   return (
-    <nav className="tabs" aria-label="Settings sections">
+    <nav className="tabs" aria-label={`${t(locale, 'Settings')} sections`}>
       {tabs.map((tab) => (
         <button key={tab} className={`tab ${tab === 'Notifications' ? 'active' : ''}`} type="button">
-          {tab}
+          {t(locale, tab)}
         </button>
       ))}
     </nav>
@@ -174,11 +231,13 @@ function SettingsTabs() {
 }
 
 function NotificationAccordion({
+  locale,
   openSection,
   rowsBySection,
   onOpen,
   onToggle,
 }: {
+  locale: Locale;
   openSection: SectionId;
   rowsBySection: Record<SectionId, NotificationRow[]>;
   onOpen: (sectionId: SectionId) => void;
@@ -189,6 +248,7 @@ function NotificationAccordion({
       {sections.map((section) => (
         <NotificationSection
           key={section.id}
+          locale={locale}
           section={section}
           rows={rowsBySection[section.id]}
           expanded={openSection === section.id}
@@ -201,12 +261,14 @@ function NotificationAccordion({
 }
 
 function NotificationSection({
+  locale,
   section,
   rows,
   expanded,
   onOpen,
   onToggle,
 }: {
+  locale: Locale;
   section: NotificationSectionData;
   rows: NotificationRow[];
   expanded: boolean;
@@ -227,24 +289,25 @@ function NotificationSection({
         <span className={`section-icon ${section.tone}`}>
           <Icon name={section.icon} />
         </span>
-        <span className="section-title">{section.title}</span>
+        <span className="section-title">{t(locale, section.title)}</span>
         <span className="manage">
-          Manage
+          {t(locale, 'Manage')}
           <span className={`caret ${expanded ? 'up' : ''}`} aria-hidden="true" />
         </span>
       </button>
       {expanded && (
         <div id={panelId} className="notification-table">
           <div className="table-label-spacer" aria-hidden="true" />
-          <ChannelHeader label="In-App" icon="desktop" />
-          <ChannelHeader label="Email" icon="mail" />
-          <ChannelHeader label="Push" icon="phone" />
+          <ChannelHeader label={t(locale, 'In-App')} icon="desktop" />
+          <ChannelHeader label={t(locale, 'Email')} icon="mail" />
+          <ChannelHeader label={t(locale, 'Push')} icon="phone" />
           {rows.map((row, rowIndex) => (
             <NotificationRowItem
               key={row.label}
+              locale={locale}
               row={row}
               rowIndex={rowIndex}
-              sectionTitle={section.title}
+              sectionTitle={t(locale, section.title)}
               onToggle={onToggle}
             />
           ))}
@@ -264,11 +327,13 @@ function ChannelHeader({ label, icon }: { label: string; icon: IconName }) {
 }
 
 function NotificationRowItem({
+  locale,
   row,
   rowIndex,
   sectionTitle,
   onToggle,
 }: {
+  locale: Locale;
   row: NotificationRow;
   rowIndex: number;
   sectionTitle: string;
@@ -276,12 +341,12 @@ function NotificationRowItem({
 }) {
   return (
     <>
-      <div className="event-name">{row.label}</div>
+      <div className="event-name">{t(locale, row.label)}</div>
       {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
         <div className="toggle-cell" key={channel}>
           <NotificationToggle
             checked={row.values[channel]}
-            label={`${sectionTitle}: ${row.label} ${channel}`}
+            label={`${sectionTitle}: ${t(locale, row.label)} ${channel}`}
             onClick={() => onToggle(rowIndex, channel)}
           />
         </div>
@@ -305,9 +370,11 @@ function NotificationToggle({ checked, label, onClick }: { checked: boolean; lab
 }
 
 function NotificationLanguages({
+  locale,
   values,
   onChange,
 }: {
+  locale: Locale;
   values: Record<LanguageKey, string>;
   onChange: (values: Record<LanguageKey, string>) => void;
 }) {
@@ -318,22 +385,25 @@ function NotificationLanguages({
           <Icon name="bell" />
         </span>
         <span>
-          <h2 id="languages-title">Notification languages</h2>
-          <p>Choose your preferred languages for each channel</p>
+          <h2 id="languages-title">{t(locale, 'Notification languages')}</h2>
+          <p>{t(locale, 'Choose your preferred languages for each channel')}</p>
         </span>
       </div>
       <div className="select-stack">
         <SelectField
+          locale={locale}
           label="Member Area Notifications"
           value={values.memberArea}
           onChange={(value) => onChange({ ...values, memberArea: value })}
         />
         <SelectField
+          locale={locale}
           label="Email Notifications"
           value={values.email}
           onChange={(value) => onChange({ ...values, email: value })}
         />
         <SelectField
+          locale={locale}
           label="App Notifications"
           value={values.app}
           onChange={(value) => onChange({ ...values, app: value })}
@@ -341,20 +411,30 @@ function NotificationLanguages({
       </div>
       <p className="language-note">
         <Icon name="info" />
-        Language changes may take a few minutes to apply
+        {t(locale, 'Language changes may take a few minutes to apply')}
       </p>
     </section>
   );
 }
 
-function SelectField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function SelectField({
+  locale,
+  label,
+  value,
+  onChange,
+}: {
+  locale: Locale;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <label className="select-field">
-      <span>{label}</span>
+      <span>{t(locale, label)}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {languageOptions.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {t(locale, option)}
           </option>
         ))}
       </select>
@@ -362,18 +442,18 @@ function SelectField({ label, value, onChange }: { label: string; value: string;
   );
 }
 
-function SaveButton({ onSave }: { onSave: () => void }) {
+function SaveButton({ locale, onSave }: { locale: Locale; onSave: () => void }) {
   return (
     <button className="save-button" type="button" onClick={onSave}>
-      Save Changes
+      {t(locale, 'Save Changes')}
     </button>
   );
 }
 
-function Toast({ visible }: { visible: boolean }) {
+function Toast({ locale, visible }: { locale: Locale; visible: boolean }) {
   return (
     <div className={`toast ${visible ? 'visible' : ''}`} role="status" aria-live="polite">
-      Changes saved
+      {t(locale, 'Changes saved')}
     </div>
   );
 }
