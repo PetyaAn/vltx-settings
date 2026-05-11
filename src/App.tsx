@@ -138,6 +138,7 @@ function App() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'week', direction: 'asc' });
   const [fileName, setFileName] = useState('analytics_wb_ozon.xlsx');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toast, setToast] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -182,8 +183,8 @@ function App() {
   };
 
   return (
-    <main className="app-shell">
-      <Sidebar />
+    <main className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((current) => !current)} />
       <section className="workspace" aria-label="План года для товара 12372890">
         <header className="topbar">
           <div>
@@ -265,11 +266,22 @@ function App() {
   );
 }
 
-function Sidebar() {
+function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   return (
-    <aside className="sidebar">
-      <div className="logo" aria-label="Логотип">
-        <span>PA</span>
+    <aside className="sidebar" data-collapsed={collapsed}>
+      <div className="sidebar-head">
+        <div className="logo" aria-label="Логотип">
+          <span>PA</span>
+        </div>
+        <button
+          className="collapse-button"
+          type="button"
+          aria-label={collapsed ? 'Развернуть боковую панель' : 'Свернуть боковую панель'}
+          aria-pressed={collapsed}
+          onClick={onToggle}
+        >
+          <Icon name={collapsed ? 'panelOpen' : 'panelClose'} />
+        </button>
       </div>
       <nav className="nav-list" aria-label="Основная навигация">
         <NavItem icon="home" label="Главная" />
@@ -447,35 +459,52 @@ function DataGrid({
   return (
     <div className="data-grid-wrap">
       <table className="data-grid">
+        <colgroup>
+          <col className="col-period" />
+          <col className="col-week" />
+          <col className="col-month" />
+          <col className="col-season" />
+          <col className="col-strategy" />
+          <col span={6} className="col-ratio" />
+          <col className="col-money" />
+          <col className="col-small" />
+          <col className="col-money" />
+          <col className="col-ratio" />
+          <col className="col-ratio" />
+          <col className="col-orders" />
+          <col className="col-money" />
+        </colgroup>
         <thead>
           <tr>
-            <th className="sticky-col" colSpan={2}>
+            <th className="sticky-col">
               Период
             </th>
             <SortableTh label="Нед." sortKey="week" sort={sort} onSort={onSort} />
             <th>Месяц</th>
             <th>Сезон</th>
             <th>Стратегия</th>
-            <SortableTh label="Коэф. сезон" sortKey="seasonRatio" sort={sort} onSort={onSort} />
-            <th>Коэф. ручной</th>
-            <SortableTh label="Скорость заказов 7Д" sortKey="speed7d" sort={sort} onSort={onSort} />
-            <th>Коэф. цен</th>
-            <th>Спрос/Предп</th>
+            <SortableTh label="Сезон, к." sortKey="seasonRatio" sort={sort} onSort={onSort} />
+            <th>Ручн., к.</th>
+            <SortableTh label="Скор. 7Д" sortKey="speed7d" sort={sort} onSort={onSort} />
+            <th>Цена, к.</th>
+            <th>Спрос</th>
             <th>Итог</th>
-            <th>Цена с СПП</th>
+            <th>Цена СПП</th>
             <th>СПП</th>
-            <th>Цена до СПП</th>
-            <SortableTh label="Маржа до ДРР" sortKey="margin" sort={sort} onSort={onSort} />
-            <th>Раскрутка</th>
-            <th>Заказы, шт.</th>
-            <SortableTh label="Заказы, руб." sortKey="ordersRub" sort={sort} onSort={onSort} />
+            <th>До СПП</th>
+            <SortableTh label="Маржа" sortKey="margin" sort={sort} onSort={onSort} />
+            <th>Раскр.</th>
+            <th>Шт.</th>
+            <SortableTh label="Руб." sortKey="ordersRub" sort={sort} onSort={onSort} />
           </tr>
         </thead>
         <tbody>
           {rows.map((item) => (
             <tr key={`${item.start}-${item.week}`}>
-              <td className="sticky-col">{item.start}</td>
-              <td>{item.end}</td>
+              <td className="sticky-col period-cell">
+                <span>{item.start}</span>
+                <span>{item.end}</span>
+              </td>
               <td>{item.week}</td>
               <td>{item.month}</td>
               <td>
@@ -550,6 +579,8 @@ type IconName =
   | 'dashboard'
   | 'file'
   | 'home'
+  | 'panelClose'
+  | 'panelOpen'
   | 'plan'
   | 'refresh'
   | 'search'
@@ -583,6 +614,20 @@ function Icon({ name }: { name: IconName }) {
       return (
         <svg {...common}>
           <path {...pathProps} d="m4 11 8-7 8 7v9h-5v-6H9v6H4v-9Z" />
+        </svg>
+      );
+    case 'panelClose':
+      return (
+        <svg {...common}>
+          <path {...pathProps} d="M4 5h16v14H4V5Z" />
+          <path {...pathProps} d="M9 5v14M15 9l-3 3 3 3" />
+        </svg>
+      );
+    case 'panelOpen':
+      return (
+        <svg {...common}>
+          <path {...pathProps} d="M4 5h16v14H4V5Z" />
+          <path {...pathProps} d="M9 5v14M12 9l3 3-3 3" />
         </svg>
       );
     case 'plan':
