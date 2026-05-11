@@ -1,1201 +1,648 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 
-type Channel = 'inApp' | 'email' | 'push';
-type SectionId = 'account' | 'funds' | 'support' | 'marketing';
-type IconName =
-  | 'user'
-  | 'chart'
-  | 'chat'
-  | 'gift'
-  | 'bell'
-  | 'desktop'
-  | 'mail'
-  | 'phone'
-  | 'info'
-  | 'menu'
-  | 'profile'
-  | 'shield'
-  | 'login'
-  | 'password'
-  | 'wallet'
-  | 'cash';
+type ChartTab = 'sales' | 'profit' | 'orders' | 'stock' | 'cash';
+type Season = 'Пик' | 'Рост' | 'Спад';
+type SeasonFilter = 'Все' | Season;
+type SortKey = 'week' | 'seasonRatio' | 'speed7d' | 'margin' | 'ordersRub';
 
-type NotificationRow = {
+type PlanRow = {
+  start: string;
+  end: string;
+  week: number;
+  month: string;
+  season: Season;
+  strategy: string;
+  seasonRatio: number;
+  manualRatio: number | null;
+  speed7d: number;
+  priceRatio: number;
+  demandRatio: number;
+  totalRatio: number;
+  sppPrice: number;
+  spp: number;
+  priceBeforeSpp: number;
+  margin: number;
+  promotion: number;
+  ordersQty: number;
+  ordersRub: number;
+};
+
+type ChartPoint = {
   label: string;
-  values: Record<Channel, boolean>;
+  orders: number;
+  stock: number;
+  profit: number;
+  cash: number;
 };
 
-type NotificationSectionData = {
-  id: SectionId;
-  title: string;
-  tone: 'error' | 'info' | 'success' | 'warning';
-  icon: IconName;
-  rows: NotificationRow[];
+const chartTabs: Record<ChartTab, string> = {
+  sales: 'Прогноз продаж',
+  profit: 'Прибыль',
+  orders: 'Заказы',
+  stock: 'Остатки',
+  cash: 'Касса',
 };
 
-type DetailedNotificationRow = NotificationRow & {
-  description: string;
-};
-
-type DetailedNotificationSectionData = Omit<NotificationSectionData, 'rows'> & {
-  rows: DetailedNotificationRow[];
-};
-
-type LanguageKey = 'memberArea' | 'email' | 'app';
-type Locale = 'en' | 'id';
-type CardSectionId = SectionId;
-
-type CardNotification = {
-  label: string;
-  description: string;
-  values: Record<Channel, boolean>;
-};
-
-type CardNotificationSection = {
-  id: CardSectionId;
-  title: string;
-  icon: IconName;
-  tone: 'red' | 'blue';
-  cards: CardNotification[];
-};
-
-const translations: Record<Locale, Record<string, string>> = {
-  en: {},
-  id: {
-    'Settings': 'Pengaturan',
-    'Profile Information': 'Informasi Profil',
-    'Security': 'Keamanan',
-    'Notifications': 'Notifikasi',
-    'Shipping Address': 'Alamat Pengiriman',
-    'Account & Security': 'Akun & Keamanan',
-    'Funds & Trading': 'Dana & Perdagangan',
-    'Support & Communications': 'Dukungan & Komunikasi',
-    'Marketing & Programs': 'Pemasaran & Program',
-    'Manage': 'Kelola',
-    'In-App': 'Di Aplikasi',
-    'Email': 'Email',
-    'Push': 'Push',
-    'Registration and Verification': 'Pendaftaran dan Verifikasi',
-    'Accounts': 'Akun',
-    'Deposits': 'Deposit',
-    'Withdrawals': 'Penarikan',
-    'Strategies': 'Strategi',
-    'Local Depositor': 'Penyetor Lokal',
-    'Tickets': 'Tiket',
-    'Voice messages': 'Pesan Suara',
-    'Bonuses': 'Bonus',
-    'Contests': 'Kontes',
-    'Partner Program': 'Program Mitra',
-    'Valetax Store': 'Toko Valetax',
-    'Notification languages': 'Bahasa Notifikasi',
-    'Choose your preferred languages for each channel': 'Pilih bahasa pilihan untuk setiap kanal',
-    'Member Area Notifications': 'Notifikasi Area Anggota',
-    'Email Notifications': 'Notifikasi Email',
-    'App Notifications': 'Notifikasi Aplikasi',
-    'Language changes may take a few minutes to apply': 'Perubahan bahasa mungkin perlu beberapa menit untuk diterapkan',
-    'Save Changes': 'Simpan Perubahan',
-    'Changes saved': 'Perubahan disimpan',
-    'English': 'Inggris',
-    'Thai': 'Thailand',
-    'Klingon': 'Klingon',
-    'Spanish': 'Spanyol',
-    'Portuguese': 'Portugis',
-    'Vietnamese': 'Vietnam',
-    'Arabic': 'Arab',
-  },
-};
-
-const t = (locale: Locale, text: string) => translations[locale][text] ?? text;
-
-const sections: NotificationSectionData[] = [
-  {
-    id: 'account',
-    title: 'Account & Security',
-    tone: 'error',
-    icon: 'user',
-    rows: [
-      { label: 'Registration and Verification', values: { inApp: false, email: true, push: true } },
-      { label: 'Accounts', values: { inApp: true, email: false, push: false } },
-    ],
-  },
-  {
-    id: 'funds',
-    title: 'Funds & Trading',
-    tone: 'info',
-    icon: 'chart',
-    rows: [
-      { label: 'Deposits', values: { inApp: false, email: true, push: true } },
-      { label: 'Withdrawals', values: { inApp: true, email: false, push: false } },
-      { label: 'Strategies', values: { inApp: true, email: false, push: true } },
-      { label: 'Local Depositor', values: { inApp: true, email: true, push: false } },
-    ],
-  },
-  {
-    id: 'support',
-    title: 'Support & Communications',
-    tone: 'success',
-    icon: 'chat',
-    rows: [
-      { label: 'Tickets', values: { inApp: false, email: true, push: true } },
-      { label: 'Voice messages', values: { inApp: true, email: false, push: false } },
-    ],
-  },
-  {
-    id: 'marketing',
-    title: 'Marketing & Programs',
-    tone: 'warning',
-    icon: 'gift',
-    rows: [
-      { label: 'Bonuses', values: { inApp: false, email: true, push: true } },
-      { label: 'Contests', values: { inApp: false, email: false, push: false } },
-      { label: 'Partner Program', values: { inApp: true, email: false, push: true } },
-      { label: 'Valetax Store', values: { inApp: true, email: false, push: false } },
-    ],
-  },
+const chartPoints: ChartPoint[] = [
+  { label: '01.09', orders: 693, stock: 7600, profit: 19.4, cash: 1.52 },
+  { label: '01.10', orders: 730, stock: 4300, profit: 21.2, cash: 1.58 },
+  { label: '01.11', orders: 823, stock: 1700, profit: 26.8, cash: 1.8 },
+  { label: '01.12', orders: 1028, stock: 5600, profit: 29.6, cash: 2.23 },
+  { label: '01.01', orders: 1233, stock: 2100, profit: 31.4, cash: 2.68 },
+  { label: '01.02', orders: 986, stock: 8200, profit: 27.5, cash: 2.14 },
+  { label: '01.03', orders: 1286, stock: 2700, profit: 32.2, cash: 2.79 },
+  { label: '01.04', orders: 1321, stock: 7100, profit: 33.8, cash: 2.86 },
+  { label: '01.05', orders: 825, stock: 2900, profit: 24.1, cash: 1.79 },
+  { label: '01.06', orders: 1198, stock: 6500, profit: 30.1, cash: 2.6 },
+  { label: '01.07', orders: 1021, stock: 3000, profit: 28.7, cash: 2.21 },
+  { label: '01.08', orders: 1273, stock: 7350, profit: 33.1, cash: 2.76 },
 ];
 
-const languageOptions = ['English', 'Thai', 'Klingon', 'Spanish', 'Portuguese', 'Vietnamese', 'Arabic'];
-
-const detailedSections: DetailedNotificationSectionData[] = [
-  {
-    id: 'account',
-    title: 'Account & Security',
-    tone: 'error',
-    icon: 'user',
-    rows: [
-      {
-        label: 'Registration and Verification',
-        description: 'Important updates about your registration and verification',
-        values: { inApp: true, email: true, push: false },
-      },
-      {
-        label: 'Accounts',
-        description: 'Account updates and important notices',
-        values: { inApp: true, email: false, push: true },
-      },
-    ],
-  },
-  {
-    id: 'funds',
-    title: 'Funds & Trading',
-    tone: 'info',
-    icon: 'chart',
-    rows: [
-      {
-        label: 'Deposits',
-        description: 'Deposit confirmations and status updates',
-        values: { inApp: true, email: false, push: false },
-      },
-      {
-        label: 'Withdrawals',
-        description: 'Withdrawal confirmations and status updates',
-        values: { inApp: false, email: true, push: true },
-      },
-      {
-        label: 'Strategies',
-        description: 'Updates about strategy subscriptions and performance',
-        values: { inApp: true, email: false, push: false },
-      },
-      {
-        label: 'Local Depositor',
-        description: 'Updates and news for Local Depositor partners',
-        values: { inApp: true, email: false, push: true },
-      },
-    ],
-  },
-  {
-    id: 'support',
-    title: 'Support & Communications',
-    tone: 'success',
-    icon: 'chat',
-    rows: [
-      {
-        label: 'Tickets',
-        description: 'Updates about your support tickets',
-        values: { inApp: true, email: false, push: true },
-      },
-      {
-        label: 'Voice messages',
-        description: 'Voice message notifications and updates',
-        values: { inApp: false, email: true, push: true },
-      },
-    ],
-  },
-  {
-    id: 'marketing',
-    title: 'Marketing & Programs',
-    tone: 'warning',
-    icon: 'gift',
-    rows: [
-      {
-        label: 'Bonuses',
-        description: 'Bonus offers, promotions and rewards',
-        values: { inApp: true, email: false, push: false },
-      },
-      {
-        label: 'Contests',
-        description: 'Contest announcements and results',
-        values: { inApp: false, email: true, push: false },
-      },
-      {
-        label: 'Partner Program',
-        description: 'Updates and news about our Partner Program',
-        values: { inApp: true, email: true, push: false },
-      },
-      {
-        label: 'Valetax Store',
-        description: 'Redeem bonuses for exclusive rewards and offers',
-        values: { inApp: true, email: false, push: true },
-      },
-    ],
-  },
+const planRows: PlanRow[] = [
+  row('03.08.25', '09.08.25', 1, 'авг.', 'Пик', 'Старт продаж', 112.74, null, 875, 96, 137, 149, 1740, 17.34, 2105, 25.72, 100, 875, 1841860),
+  row('10.08.25', '16.08.25', 2, 'авг.', 'Спад', 'Снять перегрев', 88.66, null, 693, 100, 130, 115, 1810, 17.34, 2190, 27.16, 100, 693, 1517329),
+  row('17.08.25', '23.08.25', 3, 'авг.', 'Рост', 'Вернуть темп', 89, 89, 700, 100, 89, 52, 1790, 17.34, 2165, 26.76, 100, 700, 1516868),
+  row('24.08.25', '30.08.25', 4, 'авг.', 'Рост', 'Стабилизация', 89, 89, 705, 99, 59, 22, 1800, 17.34, 2178, 26.96, 100, 705, 1535909),
+  row('31.08.25', '06.09.25', 5, 'авг.', 'Рост', 'Поддержка', 89, 89, 710, 100, 25, 4, 1810, 17.34, 2190, 27.16, 100, 710, 1555067),
+  row('07.09.25', '13.09.25', 6, 'сент.', 'Рост', 'Поддержка', 89, 89, 715, 100, 14, 1, 1820, 17.34, 2202, 27.36, 100, 715, 1574342),
+  row('14.09.25', '20.09.25', 7, 'сент.', 'Рост', 'Поддержка', 89, 89, 720, 100, 15, 2, 1800, 17.34, 2178, 26.96, 100, 720, 1567608),
+  row('21.09.25', '27.09.25', 8, 'сент.', 'Рост', 'Поддержка', 89, 89, 725, 100, 22, 4, 1790, 17.34, 2165, 26.76, 100, 725, 1569407),
+  row('28.09.25', '04.10.25', 9, 'сент.', 'Рост', 'Усилить спрос', 89, 89, 730, 99, 32, 8, 1790, 17.34, 2165, 26.76, 100, 730, 1579914),
+  row('05.10.25', '11.10.25', 10, 'окт.', 'Рост', 'Усилить спрос', 89, 89, 734, 99, 60, 31, 1830, 17.34, 2214, 27.56, 100, 734, 1625962),
+  row('12.10.25', '18.10.25', 11, 'окт.', 'Рост', 'Удержание', 89, 89, 739, 101, 62, 45, 1860, 17.34, 2250, 28.13, 100, 739, 1663536),
+  row('19.10.25', '25.10.25', 12, 'окт.', 'Рост', 'Проверка цены', 98.38, null, 823, 103, 81, 82, 1810, 17.34, 2190, 27.16, 100, 823, 1801099),
+  row('26.10.25', '01.11.25', 13, 'окт.', 'Спад', 'Контроль остатков', 89.47, null, 753, 100, 75, 67, 1830, 17.34, 2214, 27.56, 100, 753, 1666988),
+  row('02.11.25', '08.11.25', 14, 'нояб.', 'Рост', 'Плавный рост', 91.2, 90, 793, 101, 86, 74, 1840, 17.34, 2226, 27.75, 100, 793, 1765518),
+  row('09.11.25', '15.11.25', 15, 'нояб.', 'Пик', 'Пик спроса', 117.4, null, 1028, 104, 126, 134, 1870, 17.34, 2262, 28.31, 100, 1028, 2325336),
+  row('16.11.25', '22.11.25', 16, 'нояб.', 'Рост', 'Сдержать ДРР', 96.8, 94, 896, 102, 92, 83, 1850, 17.34, 2238, 27.94, 100, 896, 2005248),
 ];
 
-const cardSections: CardNotificationSection[] = [
-  {
-    id: 'account',
-    title: 'Account & Security',
-    icon: 'user',
-    tone: 'red',
-    cards: [
-      {
-        label: 'Registration and Verification',
-        description: 'Important updates about your registration and verification',
-        values: { inApp: true, email: true, push: false },
-      },
-      {
-        label: 'Accounts',
-        description: 'Account updates and important notices',
-        values: { inApp: true, email: false, push: true },
-      },
-    ],
-  },
-  {
-    id: 'funds',
-    title: 'Funds & Trading',
-    icon: 'chart',
-    tone: 'blue',
-    cards: [
-      {
-        label: 'Deposits',
-        description: 'Deposit confirmations and status updates',
-        values: { inApp: true, email: false, push: false },
-      },
-      {
-        label: 'Withdrawals',
-        description: 'Withdrawal confirmations and status updates',
-        values: { inApp: false, email: true, push: true },
-      },
-      {
-        label: 'Strategies',
-        description: 'Updates about strategy subscriptions and performance',
-        values: { inApp: true, email: false, push: false },
-      },
-      {
-        label: 'Local Depositor',
-        description: 'Updates and news for Local Depositor partners',
-        values: { inApp: true, email: false, push: true },
-      },
-    ],
-  },
-  {
-    id: 'support',
-    title: 'Support & Communications',
-    icon: 'chat',
-    tone: 'blue',
-    cards: [
-      {
-        label: 'Tickets',
-        description: 'Updates about your support tickets',
-        values: { inApp: true, email: false, push: true },
-      },
-      {
-        label: 'Voice messages',
-        description: 'Voice message notifications and updates',
-        values: { inApp: false, email: true, push: true },
-      },
-    ],
-  },
-  {
-    id: 'marketing',
-    title: 'Marketing & Programs',
-    icon: 'gift',
-    tone: 'blue',
-    cards: [
-      {
-        label: 'Bonuses',
-        description: 'Bonus offers, promotions and rewards',
-        values: { inApp: true, email: false, push: false },
-      },
-      {
-        label: 'Contests',
-        description: 'Contest announcements and results',
-        values: { inApp: false, email: true, push: false },
-      },
-      {
-        label: 'Partner Program',
-        description: 'Updates and news about our Partner Program',
-        values: { inApp: true, email: true, push: false },
-      },
-      {
-        label: 'Valetax Store',
-        description: 'Redeem bonuses for exclusive rewards and offers',
-        values: { inApp: true, email: false, push: true },
-      },
-    ],
-  },
+const metrics = [
+  { label: 'Рост рынка', value: 'Умеренный', tone: 'good', hint: '+12,7% к базовому спросу' },
+  { label: 'Раскрутка', value: '0 нед.', tone: 'muted', hint: 'Без дополнительного разгона' },
+  { label: 'Округлять до', value: '100', tone: 'muted', hint: 'Шаг закупки' },
+  { label: 'Макс. оборач.', value: '40', tone: 'muted', hint: 'Дней остатка' },
+  { label: 'ROI на инвестиции', value: '368%', tone: 'good', hint: 'Целевой сценарий' },
+  { label: 'ROI на поставки', value: '72%', tone: 'warn', hint: 'Зона внимания' },
+  { label: 'GMROI', value: '695%', tone: 'good', hint: 'Эффективность товара' },
+  { label: 'Прибыль за год', value: '20 720 252 ₽', tone: 'good', hint: 'После ДРР' },
 ];
+
+function row(
+  start: string,
+  end: string,
+  week: number,
+  month: string,
+  season: Season,
+  strategy: string,
+  seasonRatio: number,
+  manualRatio: number | null,
+  speed7d: number,
+  priceRatio: number,
+  demandRatio: number,
+  totalRatio: number,
+  sppPrice: number,
+  spp: number,
+  priceBeforeSpp: number,
+  margin: number,
+  promotion: number,
+  ordersQty: number,
+  ordersRub: number,
+): PlanRow {
+  return {
+    start,
+    end,
+    week,
+    month,
+    season,
+    strategy,
+    seasonRatio,
+    manualRatio,
+    speed7d,
+    priceRatio,
+    demandRatio,
+    totalRatio,
+    sppPrice,
+    spp,
+    priceBeforeSpp,
+    margin,
+    promotion,
+    ordersQty,
+    ordersRub,
+  };
+}
 
 function App() {
-  const path = window.location.pathname;
-  const locale: Locale = path.includes('index-indonesian') ? 'id' : 'en';
-  const isDetailedVariant = path.includes('index-updates');
-  const isCardVariant = path.includes('index-cards');
+  const [activeTab, setActiveTab] = useState<ChartTab>('sales');
+  const [season, setSeason] = useState<SeasonFilter>('Все');
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'week', direction: 'asc' });
+  const [fileName, setFileName] = useState('analytics_wb_ozon.xlsx');
+  const [toast, setToast] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    document.documentElement.lang = locale === 'id' ? 'id' : 'en';
-    document.title = locale === 'id' ? 'Pengaturan Notifikasi Valetax' : 'Valetax Notifications Settings';
-  }, [locale, isDetailedVariant, isCardVariant]);
+  const filteredRows = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return [...planRows]
+      .filter((item) => season === 'Все' || item.season === season)
+      .filter((item) =>
+        normalized
+          ? `${item.start} ${item.end} ${item.month} ${item.season} ${item.strategy}`.toLowerCase().includes(normalized)
+          : true,
+      )
+      .sort((a, b) => {
+        const aValue = a[sort.key];
+        const bValue = b[sort.key];
+        const result = Number(aValue) - Number(bValue);
+        return sort.direction === 'asc' ? result : -result;
+      });
+  }, [query, season, sort]);
 
-  if (isCardVariant) {
-    return <CardSettingsPage />;
-  }
+  const totalOrders = filteredRows.reduce((sum, item) => sum + item.ordersQty, 0);
+  const totalRevenue = filteredRows.reduce((sum, item) => sum + item.ordersRub, 0);
+  const averageMargin = filteredRows.reduce((sum, item) => sum + item.margin, 0) / Math.max(filteredRows.length, 1);
 
-  if (isDetailedVariant) {
-    return <DetailedSettingsPage />;
-  }
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(''), 2600);
+  };
 
-  return <SettingsPage locale={locale} />;
-}
+  const toggleSort = (key: SortKey) => {
+    setSort((current) =>
+      current.key === key
+        ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: 'desc' },
+    );
+  };
 
-function SettingsPage({ locale }: { locale: Locale }) {
-  const [openSection, setOpenSection] = useState<SectionId>('account');
-  const [settings, setSettings] = useState(() =>
-    Object.fromEntries(
-      sections.map((section) => [
-        section.id,
-        section.rows.map((row) => ({ label: row.label, values: { ...row.values } })),
-      ]),
-    ) as Record<SectionId, NotificationRow[]>,
-  );
-  const [languages, setLanguages] = useState<Record<LanguageKey, string>>({
-    memberArea: 'English',
-    email: 'Thai',
-    app: 'Klingon',
-  });
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (!saved) return;
-    const timer = window.setTimeout(() => setSaved(false), 2600);
-    return () => window.clearTimeout(timer);
-  }, [saved]);
-
-  const sectionRows = useMemo(
-    () =>
-      Object.fromEntries(sections.map((section) => [section.id, settings[section.id]])) as Record<
-        SectionId,
-        NotificationRow[]
-      >,
-    [settings],
-  );
-
-  const toggleNotification = (sectionId: SectionId, rowIndex: number, channel: Channel) => {
-    setSettings((current) => ({
-      ...current,
-      [sectionId]: current[sectionId].map((row, index) =>
-        index === rowIndex ? { ...row, values: { ...row.values, [channel]: !row.values[channel] } } : row,
-      ),
-    }));
+  const handleFile = (file: File | undefined) => {
+    if (!file) return;
+    setFileName(file.name);
+    showToast('Файл загружен, период обновлен');
   };
 
   return (
-    <main className="demo-shell">
-      <section className="phone-frame" aria-label={`${t(locale, 'Settings')} ${t(locale, 'Notifications')} prototype`}>
-        <Header />
-        <div className="page-content">
-          <h1>{t(locale, 'Settings')}</h1>
-          <SettingsTabs locale={locale} />
-          <NotificationAccordion
-            locale={locale}
-            openSection={openSection}
-            rowsBySection={sectionRows}
-            onOpen={setOpenSection}
-            onToggle={toggleNotification}
-          />
-          <NotificationLanguages locale={locale} values={languages} onChange={setLanguages} />
-          <SaveButton locale={locale} onSave={() => setSaved(true)} />
+    <main className="app-shell">
+      <Sidebar />
+      <section className="workspace" aria-label="План года для товара 12372890">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Аналитика рынка</p>
+            <h1>План года</h1>
+          </div>
+          <div className="topbar-actions">
+            <div className="period-pill">
+              <Icon name="calendar" />
+              <span>с 01.08.24 по 02.08.25</span>
+            </div>
+            <button className="button secondary" type="button" onClick={() => inputRef.current?.click()}>
+              <Icon name="upload" />
+              Загрузить файл
+            </button>
+            <input
+              ref={inputRef}
+              className="visually-hidden"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(event) => handleFile(event.target.files?.[0])}
+            />
+            <button className="button primary" type="button" onClick={() => showToast('Расчет выполнен: план пересобран')}>
+              <Icon name="refresh" />
+              Расчет
+            </button>
+          </div>
+        </header>
+
+        <div className="dashboard-grid">
+          <ProductCard fileName={fileName} />
+          <MetricPanel />
+          <ChartPanel activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
-        <Toast locale={locale} visible={saved} />
+
+        <section className="table-section" aria-labelledby="grid-title">
+          <div className="table-toolbar">
+            <div>
+              <p className="eyebrow">Data grid</p>
+              <h2 id="grid-title">Недельный план продаж</h2>
+            </div>
+            <div className="table-controls">
+              <label className="search-field">
+                <Icon name="search" />
+                <input
+                  type="search"
+                  placeholder="Поиск по периоду, месяцу, стратегии"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+              <div className="segmented" aria-label="Фильтр сезона">
+                {(['Все', 'Пик', 'Рост', 'Спад'] as SeasonFilter[]).map((item) => (
+                  <button
+                    key={item}
+                    className={season === item ? 'active' : ''}
+                    type="button"
+                    onClick={() => setSeason(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="summary-strip">
+            <Summary label="Строк" value={String(filteredRows.length)} />
+            <Summary label="Заказы" value={formatNumber(totalOrders)} />
+            <Summary label="Выручка" value={formatMoney(totalRevenue)} />
+            <Summary label="Средняя маржа" value={`${formatPercent(averageMargin)}`} />
+          </div>
+          <DataGrid rows={filteredRows} sort={sort} onSort={toggleSort} />
+        </section>
       </section>
+      <div className={`toast ${toast ? 'visible' : ''}`} role="status" aria-live="polite">
+        {toast}
+      </div>
     </main>
   );
 }
 
-function Header() {
+function Sidebar() {
   return (
-    <header className="header">
-      <a className="brand" href="/" aria-label="Valetax home" onClick={(event) => event.preventDefault()}>
-        <span className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 28 18" role="img">
-            <path d="M2 3.2 10.8 13 15.4 7.6" />
-            <path d="M13 3.2 18.1 13 26 3.2" />
-          </svg>
-        </span>
-        <span>Valetax</span>
-      </a>
-      <div className="header-actions">
-        <button className="icon-button" type="button" aria-label="Open user profile">
-          <Icon name="profile" />
-        </button>
-        <button className="icon-button" type="button" aria-label="Open menu">
-          <Icon name="menu" />
-        </button>
+    <aside className="sidebar">
+      <div className="logo" aria-label="Логотип">
+        <span>PA</span>
       </div>
-    </header>
+      <nav className="nav-list" aria-label="Основная навигация">
+        <NavItem icon="home" label="Главная" />
+        <NavItem icon="plan" label="План года" active />
+        <NavItem icon="dashboard" label="Дашборд" />
+      </nav>
+      <div className="sidebar-card">
+        <span>WB + Ozon</span>
+        <strong>Seller analytics</strong>
+      </div>
+    </aside>
   );
 }
 
-function SettingsTabs({ locale }: { locale: Locale }) {
-  const tabs = ['Profile Information', 'Security', 'Notifications', 'Shipping Address'];
-
+function NavItem({ icon, label, active = false }: { icon: IconName; label: string; active?: boolean }) {
   return (
-    <nav className="tabs" aria-label={`${t(locale, 'Settings')} sections`}>
-      {tabs.map((tab) => (
-        <button key={tab} className={`tab ${tab === 'Notifications' ? 'active' : ''}`} type="button">
-          {t(locale, tab)}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-function NotificationAccordion({
-  locale,
-  openSection,
-  rowsBySection,
-  onOpen,
-  onToggle,
-}: {
-  locale: Locale;
-  openSection: SectionId;
-  rowsBySection: Record<SectionId, NotificationRow[]>;
-  onOpen: (sectionId: SectionId) => void;
-  onToggle: (sectionId: SectionId, rowIndex: number, channel: Channel) => void;
-}) {
-  return (
-    <div className="notification-list">
-      {sections.map((section) => (
-        <NotificationSection
-          key={section.id}
-          locale={locale}
-          section={section}
-          rows={rowsBySection[section.id]}
-          expanded={openSection === section.id}
-          onOpen={() => onOpen(section.id)}
-          onToggle={(rowIndex, channel) => onToggle(section.id, rowIndex, channel)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function NotificationSection({
-  locale,
-  section,
-  rows,
-  expanded,
-  onOpen,
-  onToggle,
-}: {
-  locale: Locale;
-  section: NotificationSectionData;
-  rows: NotificationRow[];
-  expanded: boolean;
-  onOpen: () => void;
-  onToggle: (rowIndex: number, channel: Channel) => void;
-}) {
-  const panelId = `${section.id}-panel`;
-
-  return (
-    <article className="notification-section">
-      <button
-        className="section-heading"
-        type="button"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        onClick={onOpen}
-      >
-        <span className={`section-icon ${section.tone}`}>
-          <Icon name={section.icon} />
-        </span>
-        <span className="section-title">{t(locale, section.title)}</span>
-        <span className="manage">
-          {t(locale, 'Manage')}
-          <span className={`caret ${expanded ? 'up' : ''}`} aria-hidden="true" />
-        </span>
-      </button>
-      {expanded && (
-        <div id={panelId} className="notification-table">
-          <div className="table-label-spacer" aria-hidden="true" />
-          <ChannelHeader label={t(locale, 'In-App')} icon="desktop" />
-          <ChannelHeader label={t(locale, 'Email')} icon="mail" />
-          <ChannelHeader label={t(locale, 'Push')} icon="phone" />
-          {rows.map((row, rowIndex) => (
-            <NotificationRowItem
-              key={row.label}
-              locale={locale}
-              row={row}
-              rowIndex={rowIndex}
-              sectionTitle={t(locale, section.title)}
-              onToggle={onToggle}
-            />
-          ))}
-        </div>
-      )}
-    </article>
-  );
-}
-
-function ChannelHeader({ label, icon }: { label: string; icon: IconName }) {
-  return (
-    <div className="channel-header">
-      <span>{label}</span>
+    <button className={`nav-item ${active ? 'active' : ''}`} type="button">
       <Icon name={icon} />
-    </div>
-  );
-}
-
-function NotificationRowItem({
-  locale,
-  row,
-  rowIndex,
-  sectionTitle,
-  onToggle,
-}: {
-  locale: Locale;
-  row: NotificationRow;
-  rowIndex: number;
-  sectionTitle: string;
-  onToggle: (rowIndex: number, channel: Channel) => void;
-}) {
-  return (
-    <>
-      <div className="event-name">{t(locale, row.label)}</div>
-      {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
-        <div className="toggle-cell" key={channel}>
-          <NotificationToggle
-            checked={row.values[channel]}
-            label={`${sectionTitle}: ${t(locale, row.label)} ${channel}`}
-            onClick={() => onToggle(rowIndex, channel)}
-          />
-        </div>
-      ))}
-    </>
-  );
-}
-
-function NotificationToggle({ checked, label, onClick }: { checked: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className={`toggle ${checked ? 'checked' : ''}`}
-      aria-pressed={checked}
-      aria-label={label}
-      onClick={onClick}
-    >
-      <span />
+      <span>{label}</span>
     </button>
   );
 }
 
-function NotificationLanguages({
-  locale,
-  values,
-  onChange,
-}: {
-  locale: Locale;
-  values: Record<LanguageKey, string>;
-  onChange: (values: Record<LanguageKey, string>) => void;
-}) {
+function ProductCard({ fileName }: { fileName: string }) {
   return (
-    <section className="languages" aria-labelledby="languages-title">
-      <div className="languages-heading">
-        <span className="section-icon neutral">
-          <Icon name="bell" />
+    <section className="panel product-card" aria-labelledby="product-title">
+      <div className="product-photo" aria-label="Фотография товара">
+        <div className="package-visual">
+          <span>WB</span>
+          <b>x_type_z3</b>
+        </div>
+      </div>
+      <div className="product-meta">
+        <span className="status-dot">Склейка активна</span>
+        <h2 id="product-title">12372890 - x_type_z3</h2>
+        <p>Артикул 109827300</p>
+      </div>
+      <div className="product-stats">
+        <span>
+          <b>27,43%</b>
+          Маржа до ДРР
         </span>
         <span>
-          <h2 id="languages-title">{t(locale, 'Notification languages')}</h2>
-          <p>{t(locale, 'Choose your preferred languages for each channel')}</p>
+          <b>53 563</b>
+          Заказы, шт.
         </span>
       </div>
-      <div className="select-stack">
-        <SelectField
-          locale={locale}
-          label="Member Area Notifications"
-          value={values.memberArea}
-          onChange={(value) => onChange({ ...values, memberArea: value })}
-        />
-        <SelectField
-          locale={locale}
-          label="Email Notifications"
-          value={values.email}
-          onChange={(value) => onChange({ ...values, email: value })}
-        />
-        <SelectField
-          locale={locale}
-          label="App Notifications"
-          value={values.app}
-          onChange={(value) => onChange({ ...values, app: value })}
-        />
+      <div className="file-note">
+        <Icon name="file" />
+        <span>{fileName}</span>
       </div>
-      <p className="language-note">
-        <Icon name="info" />
-        {t(locale, 'Language changes may take a few minutes to apply')}
-      </p>
     </section>
   );
 }
 
-function SelectField({
-  locale,
-  label,
-  value,
-  onChange,
-}: {
-  locale: Locale;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
+function MetricPanel() {
   return (
-    <label className="select-field">
-      <span>{t(locale, label)}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {languageOptions.map((option) => (
-          <option key={option} value={option}>
-            {t(locale, option)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function SaveButton({ locale, onSave }: { locale: Locale; onSave: () => void }) {
-  return (
-    <button className="save-button" type="button" onClick={onSave}>
-      {t(locale, 'Save Changes')}
-    </button>
-  );
-}
-
-function Toast({ locale, visible }: { locale: Locale; visible: boolean }) {
-  return (
-    <div className={`toast ${visible ? 'visible' : ''}`} role="status" aria-live="polite">
-      {t(locale, 'Changes saved')}
-    </div>
-  );
-}
-
-function DetailedSettingsPage() {
-  const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>({
-    account: true,
-    funds: true,
-    support: true,
-    marketing: true,
-  });
-  const [settings, setSettings] = useState(() =>
-    Object.fromEntries(
-      detailedSections.map((section) => [
-        section.id,
-        section.rows.map((row) => ({ label: row.label, description: row.description, values: { ...row.values } })),
-      ]),
-    ) as Record<SectionId, DetailedNotificationRow[]>,
-  );
-  const [languages, setLanguages] = useState<Record<LanguageKey, string>>({
-    memberArea: 'English',
-    email: 'Thai',
-    app: 'Klingon',
-  });
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (!saved) return;
-    const timer = window.setTimeout(() => setSaved(false), 2600);
-    return () => window.clearTimeout(timer);
-  }, [saved]);
-
-  const toggleNotification = (sectionId: SectionId, rowIndex: number, channel: Channel) => {
-    setSettings((current) => ({
-      ...current,
-      [sectionId]: current[sectionId].map((row, index) =>
-        index === rowIndex ? { ...row, values: { ...row.values, [channel]: !row.values[channel] } } : row,
-      ),
-    }));
-  };
-
-  return (
-    <main className="demo-shell">
-      <section className="phone-frame detailed-frame" aria-label="Settings Notifications detailed prototype">
-        <Header />
-        <div className="page-content detailed-content">
-          <h1>Settings</h1>
-          <SettingsTabs locale="en" />
-          <section className="updates-intro">
-            <span className="section-icon neutral">
-              <Icon name="bell" />
-            </span>
-            <span>
-              <h2>Manage how you receive updates</h2>
-              <p>Choose where you want to receive each type of notification</p>
-            </span>
-          </section>
-          <div className="detailed-list">
-            {detailedSections.map((section) => (
-              <DetailedNotificationSection
-                key={section.id}
-                section={section}
-                rows={settings[section.id]}
-                expanded={openSections[section.id]}
-                onToggleOpen={() =>
-                  setOpenSections((current) => ({ ...current, [section.id]: !current[section.id] }))
-                }
-                onToggle={(rowIndex, channel) => toggleNotification(section.id, rowIndex, channel)}
-              />
-            ))}
-          </div>
-          <DetailedNotificationLanguages values={languages} onChange={setLanguages} />
-          <SaveButton locale="en" onSave={() => setSaved(true)} />
-        </div>
-        <Toast locale="en" visible={saved} />
-      </section>
-    </main>
-  );
-}
-
-function DetailedNotificationSection({
-  section,
-  rows,
-  expanded,
-  onToggleOpen,
-  onToggle,
-}: {
-  section: DetailedNotificationSectionData;
-  rows: DetailedNotificationRow[];
-  expanded: boolean;
-  onToggleOpen: () => void;
-  onToggle: (rowIndex: number, channel: Channel) => void;
-}) {
-  return (
-    <article className="detailed-section">
-      <button
-        className="section-heading detailed-heading"
-        type="button"
-        aria-expanded={expanded}
-        onClick={onToggleOpen}
-      >
-        <span className={`section-icon ${section.tone}`}>
-          <Icon name={section.icon} />
-        </span>
-        <span className="section-title">{section.title}</span>
-        <span className="manage">
-          Manage
-          <span className={`caret ${expanded ? 'up' : ''}`} aria-hidden="true" />
-        </span>
-      </button>
-      {expanded && (
-        <div className="detailed-rows">
-          {rows.map((row, rowIndex) => (
-            <DetailedNotificationRowItem
-              key={row.label}
-              row={row}
-              rowIndex={rowIndex}
-              sectionTitle={section.title}
-              onToggle={onToggle}
-            />
-          ))}
-        </div>
-      )}
-    </article>
-  );
-}
-
-function DetailedNotificationRowItem({
-  row,
-  rowIndex,
-  sectionTitle,
-  onToggle,
-}: {
-  row: DetailedNotificationRow;
-  rowIndex: number;
-  sectionTitle: string;
-  onToggle: (rowIndex: number, channel: Channel) => void;
-}) {
-  const channelLabels: Record<Channel, string> = {
-    inApp: 'In-App',
-    email: 'Email',
-    push: 'Push',
-  };
-
-  return (
-    <div className="detailed-row">
-      <div className="detailed-row-copy">
-        <h3>{row.label}</h3>
-        <p>{row.description}</p>
+    <section className="panel metrics-panel" aria-labelledby="metrics-title">
+      <div className="panel-heading">
+        <p className="eyebrow">Параметры расчета</p>
+        <h2 id="metrics-title">Метрики</h2>
       </div>
-      <div className="detailed-channel-row">
-        {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
-          <div className="detailed-channel" key={channel}>
-            <span>{channelLabels[channel]}</span>
-            <NotificationToggle
-              checked={row.values[channel]}
-              label={`${sectionTitle}: ${row.label} ${channelLabels[channel]}`}
-              onClick={() => onToggle(rowIndex, channel)}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DetailedNotificationLanguages({
-  values,
-  onChange,
-}: {
-  values: Record<LanguageKey, string>;
-  onChange: (values: Record<LanguageKey, string>) => void;
-}) {
-  return (
-    <section className="languages detailed-languages" aria-labelledby="detailed-languages-title">
-      <div className="languages-heading">
-        <span className="section-icon neutral">
-          <Icon name="bell" />
-        </span>
-        <span>
-          <h2 id="detailed-languages-title">Notification languages</h2>
-        </span>
-      </div>
-      <div className="select-stack">
-        <SelectField
-          locale="en"
-          label="Member Area Notifications"
-          value={values.memberArea}
-          onChange={(value) => onChange({ ...values, memberArea: value })}
-        />
-        <SelectField
-          locale="en"
-          label="Email Notifications"
-          value={values.email}
-          onChange={(value) => onChange({ ...values, email: value })}
-        />
-        <SelectField
-          locale="en"
-          label="App Notifications"
-          value={values.app}
-          onChange={(value) => onChange({ ...values, app: value })}
-        />
-      </div>
-      <p className="language-note">
-        <Icon name="info" />
-        Language changes may take a few minutes to apply
-      </p>
-    </section>
-  );
-}
-
-function CardSettingsPage() {
-  const [languages, setLanguages] = useState<Record<LanguageKey, string>>({
-    memberArea: 'English',
-    email: 'Thai',
-    app: 'Klingon',
-  });
-  const [saved, setSaved] = useState(false);
-  const [settings, setSettings] = useState(() =>
-    Object.fromEntries(
-      cardSections.map((section) => [
-        section.id,
-        section.cards.map((card) => ({ ...card, values: { ...card.values } })),
-      ]),
-    ) as Record<CardSectionId, CardNotification[]>,
-  );
-
-  const toggleCardNotification = (sectionId: CardSectionId, cardIndex: number, channel: Channel) => {
-    setSettings((current) => ({
-      ...current,
-      [sectionId]: current[sectionId].map((card, index) =>
-        index === cardIndex ? { ...card, values: { ...card.values, [channel]: !card.values[channel] } } : card,
-      ),
-    }));
-  };
-
-  useEffect(() => {
-    if (!saved) return;
-    const timer = window.setTimeout(() => setSaved(false), 2600);
-    return () => window.clearTimeout(timer);
-  }, [saved]);
-
-  return (
-    <main className="demo-shell">
-      <section className="phone-frame cards-phone-frame" aria-label="Card based notifications prototype">
-        <Header />
-        <div className="page-content cards-page">
-          <h1>Settings</h1>
-          <SettingsTabs locale="en" />
-          <section className="updates-intro cards-intro">
-            <span className="section-icon neutral">
-              <Icon name="bell" />
-            </span>
-            <span>
-              <h2>Manage how you receive updates</h2>
-              <p>Choose where you want to receive each type of notification</p>
-            </span>
-          </section>
-          {cardSections.map((section) => (
-            <CardNotificationSection
-              key={section.id}
-              section={section}
-              cards={settings[section.id]}
-              onToggle={(cardIndex, channel) => toggleCardNotification(section.id, cardIndex, channel)}
-            />
-          ))}
-          <DetailedNotificationLanguages values={languages} onChange={setLanguages} />
-          <SaveButton locale="en" onSave={() => setSaved(true)} />
-        </div>
-        <Toast locale="en" visible={saved} />
-      </section>
-    </main>
-  );
-}
-
-function CardNotificationSection({
-  section,
-  cards,
-  onToggle,
-}: {
-  section: CardNotificationSection;
-  cards: CardNotification[];
-  onToggle: (cardIndex: number, channel: Channel) => void;
-}) {
-  return (
-    <section className="card-section" aria-labelledby={`${section.id}-card-title`}>
-      <div className="section-heading card-section-heading">
-        <span className={`section-icon ${section.tone === 'red' ? 'error' : section.id === 'marketing' ? 'warning' : section.id === 'support' ? 'success' : 'info'}`}>
-          <Icon name={section.icon} />
-        </span>
-        <h1 id={`${section.id}-card-title`}>{section.title}</h1>
-      </div>
-      <div className="notification-card-stack">
-        {cards.map((card, cardIndex) => (
-          <NotificationCard
-            key={card.label}
-            card={card}
-            sectionTitle={section.title}
-            onToggle={(channel) => onToggle(cardIndex, channel)}
-          />
+      <div className="metric-list">
+        {metrics.map((metric) => (
+          <article className={`metric-card ${metric.tone}`} key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+            <small>{metric.hint}</small>
+          </article>
         ))}
       </div>
     </section>
   );
 }
 
-function NotificationCard({
-  card,
-  sectionTitle,
-  onToggle,
-}: {
-  card: CardNotification;
-  sectionTitle: string;
-  onToggle: (channel: Channel) => void;
-}) {
-  const channelLabels: Record<Channel, string> = {
-    inApp: 'IN-APP',
-    email: 'EMAIL',
-    push: 'PUSH',
-  };
+function ChartPanel({ activeTab, onTabChange }: { activeTab: ChartTab; onTabChange: (tab: ChartTab) => void }) {
+  const chartTitle = chartTabs[activeTab];
+  const primaryLabel = activeTab === 'sales' ? 'Прогноз Заказов' : chartTitle;
+  const secondaryLabel = activeTab === 'sales' ? 'Прогноз Остаток' : 'Остатки';
 
   return (
-    <article className="notification-card">
-      <div className="notification-card-copy">
+    <section className="panel chart-panel" aria-labelledby="chart-title">
+      <div className="chart-header">
         <div>
-          <h2>{card.label}</h2>
-          <p>{card.description}</p>
+          <p className="eyebrow">Прогноз</p>
+          <h2 id="chart-title">{chartTitle}</h2>
+        </div>
+        <div className="chart-tabs" aria-label="Показатель графика">
+          {(Object.keys(chartTabs) as ChartTab[]).map((tab) => (
+            <button
+              key={tab}
+              className={activeTab === tab ? 'active' : ''}
+              type="button"
+              onClick={() => onTabChange(tab)}
+            >
+              {chartTabs[tab]}
+            </button>
+          ))}
         </div>
       </div>
-      <div className="notification-card-controls" aria-label={`${sectionTitle}: ${card.label} channels`}>
-        {(['inApp', 'email', 'push'] as Channel[]).map((channel) => (
-          <div className="notification-card-control" key={channel}>
-            <span>{channelLabels[channel]}</span>
-            <LargeNotificationToggle
-              checked={card.values[channel]}
-              label={`${card.label} ${channelLabels[channel]}`}
-              onClick={() => onToggle(channel)}
-            />
-          </div>
-        ))}
+      <div className="legend">
+        <span className="orders">{primaryLabel}</span>
+        <span className="stock">{secondaryLabel}</span>
       </div>
-    </article>
+      <ForecastChart activeTab={activeTab} />
+    </section>
   );
 }
 
-function LargeNotificationToggle({
-  checked,
-  label,
-  onClick,
-}: {
-  checked: boolean;
-  label: string;
-  onClick: () => void;
-}) {
+function ForecastChart({ activeTab }: { activeTab: ChartTab }) {
+  const width = 820;
+  const height = 300;
+  const padding = { top: 20, right: 42, bottom: 38, left: 44 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const primaryKey = activeTab === 'profit' ? 'profit' : activeTab === 'cash' ? 'cash' : 'orders';
+  const primaryValues = chartPoints.map((point) => point[primaryKey]);
+  const secondaryValues = chartPoints.map((point) => point.stock);
+  const primaryRange = [Math.min(...primaryValues) * 0.86, Math.max(...primaryValues) * 1.08];
+  const stockRange = [0, 10000];
+
+  const x = (index: number) => padding.left + (index / (chartPoints.length - 1)) * innerWidth;
+  const y = (value: number, range: number[]) =>
+    padding.top + innerHeight - ((value - range[0]) / (range[1] - range[0])) * innerHeight;
+  const primaryPath = linePath(primaryValues.map((value, index) => [x(index), y(value, primaryRange)]));
+  const stockPath = linePath(secondaryValues.map((value, index) => [x(index), y(value, stockRange)]));
+  const areaPath = `${stockPath} L ${padding.left + innerWidth} ${padding.top + innerHeight} L ${padding.left} ${
+    padding.top + innerHeight
+  } Z`;
+
   return (
-    <button
-      type="button"
-      className={`large-toggle ${checked ? 'checked' : ''}`}
-      aria-pressed={checked}
-      aria-label={label}
-      onClick={onClick}
-    >
-      <span />
-    </button>
+    <svg className="forecast-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Линейный график прогноза">
+      {[0, 1, 2, 3, 4].map((line) => {
+        const yy = padding.top + (line / 4) * innerHeight;
+        return <path className="grid-line" d={`M ${padding.left} ${yy} H ${padding.left + innerWidth}`} key={line} />;
+      })}
+      {chartPoints.map((point, index) => (
+        <g key={point.label}>
+          <path className="grid-line vertical" d={`M ${x(index)} ${padding.top} V ${padding.top + innerHeight}`} />
+          <text className="axis-label" x={x(index)} y={height - 10} textAnchor="middle">
+            {point.label}
+          </text>
+        </g>
+      ))}
+      <path className="stock-area" d={areaPath} />
+      <path className="line stock-line" d={stockPath} />
+      <path className="line orders-line" d={primaryPath} />
+      {chartPoints.map((point, index) => (
+        <g key={`${point.label}-dot`}>
+          <circle className="orders-dot" cx={x(index)} cy={y(point[primaryKey], primaryRange)} r="4" />
+          <text className="point-label" x={x(index)} y={y(point[primaryKey], primaryRange) - 10} textAnchor="middle">
+            {formatCompact(point[primaryKey])}
+          </text>
+        </g>
+      ))}
+      <text className="axis-caption" x="6" y={padding.top + 8}>
+        Кол-во
+      </text>
+      <text className="axis-caption stock-caption" x={width - 36} y={padding.top + 8}>
+        Остаток
+      </text>
+    </svg>
   );
 }
+
+function DataGrid({
+  rows,
+  sort,
+  onSort,
+}: {
+  rows: PlanRow[];
+  sort: { key: SortKey; direction: 'asc' | 'desc' };
+  onSort: (key: SortKey) => void;
+}) {
+  return (
+    <div className="data-grid-wrap">
+      <table className="data-grid">
+        <thead>
+          <tr>
+            <th className="sticky-col" colSpan={2}>
+              Период
+            </th>
+            <SortableTh label="Нед." sortKey="week" sort={sort} onSort={onSort} />
+            <th>Месяц</th>
+            <th>Сезон</th>
+            <th>Стратегия</th>
+            <SortableTh label="Коэф. сезон" sortKey="seasonRatio" sort={sort} onSort={onSort} />
+            <th>Коэф. ручной</th>
+            <SortableTh label="Скорость заказов 7Д" sortKey="speed7d" sort={sort} onSort={onSort} />
+            <th>Коэф. цен</th>
+            <th>Спрос/Предп</th>
+            <th>Итог</th>
+            <th>Цена с СПП</th>
+            <th>СПП</th>
+            <th>Цена до СПП</th>
+            <SortableTh label="Маржа до ДРР" sortKey="margin" sort={sort} onSort={onSort} />
+            <th>Раскрутка</th>
+            <th>Заказы, шт.</th>
+            <SortableTh label="Заказы, руб." sortKey="ordersRub" sort={sort} onSort={onSort} />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((item) => (
+            <tr key={`${item.start}-${item.week}`}>
+              <td className="sticky-col">{item.start}</td>
+              <td>{item.end}</td>
+              <td>{item.week}</td>
+              <td>{item.month}</td>
+              <td>
+                <span className={`season-badge ${seasonClass(item.season)}`}>{item.season}</span>
+              </td>
+              <td className="strategy">{item.strategy}</td>
+              <HeatCell value={item.seasonRatio} min={80} max={120} suffix="%" />
+              <td>{item.manualRatio ? `${formatPercent(item.manualRatio)}` : '—'}</td>
+              <HeatCell value={item.speed7d} min={650} max={1050} />
+              <HeatCell value={item.priceRatio} min={95} max={105} suffix="%" />
+              <HeatCell value={item.demandRatio} min={0} max={140} suffix="%" />
+              <HeatCell value={item.totalRatio} min={0} max={150} suffix="%" />
+              <td>{formatMoney(item.sppPrice)}</td>
+              <td>{formatPercent(item.spp)}</td>
+              <td>{formatMoney(item.priceBeforeSpp)}</td>
+              <HeatCell value={item.margin} min={24} max={30} suffix="%" />
+              <td>{formatPercent(item.promotion)}</td>
+              <td>{formatNumber(item.ordersQty)}</td>
+              <td className="money">{formatMoney(item.ordersRub)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; direction: 'asc' | 'desc' };
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sort.key === sortKey;
+  return (
+    <th>
+      <button className={`sort-button ${active ? 'active' : ''}`} type="button" onClick={() => onSort(sortKey)}>
+        {label}
+        <span>{active && sort.direction === 'asc' ? '↑' : '↓'}</span>
+      </button>
+    </th>
+  );
+}
+
+function HeatCell({ value, min, max, suffix = '' }: { value: number; min: number; max: number; suffix?: string }) {
+  const heat = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  return (
+    <td>
+      <span className="heat-cell" style={{ backgroundColor: heatColor(heat) } as CSSProperties}>
+        {suffix === '%' ? formatPercent(value) : formatNumber(value)}
+      </span>
+    </td>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <span>
+      <b>{value}</b>
+      {label}
+    </span>
+  );
+}
+
+type IconName =
+  | 'calendar'
+  | 'dashboard'
+  | 'file'
+  | 'home'
+  | 'plan'
+  | 'refresh'
+  | 'search'
+  | 'upload';
 
 function Icon({ name }: { name: IconName }) {
-  const common = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': true } as const;
+  const common = { viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': true } as const;
+  const pathProps = { stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
   switch (name) {
-    case 'user':
+    case 'calendar':
       return (
         <svg {...common}>
-          <path d="M12 12a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" />
-          <path d="M6.5 18.6c.7-2.7 2.6-4 5.5-4s4.8 1.3 5.5 4H6.5Z" />
+          <path {...pathProps} d="M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" />
         </svg>
       );
-    case 'chart':
+    case 'dashboard':
       return (
         <svg {...common}>
-          <path d="M5 17V9" />
-          <path d="M10 17V5" />
-          <path d="M15 17v-6" />
-          <path d="M20 17V7" />
-          <path d="m4.5 15.5 4-4 3 3 6-7" />
+          <path {...pathProps} d="M4 13h6V4H4v9ZM14 20h6V4h-6v16ZM4 20h6v-3H4v3Z" />
         </svg>
       );
-    case 'chat':
+    case 'file':
       return (
         <svg {...common}>
-          <path d="M5 6.5h14v10H8.6L5 19.5v-13Z" />
-          <path d="M8.5 10h7" />
-          <path d="M8.5 13h5" />
+          <path {...pathProps} d="M6 3h8l4 4v14H6V3Z" />
+          <path {...pathProps} d="M14 3v5h5M9 13h6M9 17h4" />
         </svg>
       );
-    case 'gift':
+    case 'home':
       return (
         <svg {...common}>
-          <path d="M4.5 9.5h15v10h-15v-10Z" />
-          <path d="M3.5 6.5h17v3h-17v-3Z" />
-          <path d="M12 6.5v13" />
-          <path d="M12 6.5c-2.2 0-3.7-.9-3.7-2 0-.8.7-1.3 1.5-1.3 1.4 0 2.2 1.4 2.2 3.3Z" />
-          <path d="M12 6.5c2.2 0 3.7-.9 3.7-2 0-.8-.7-1.3-1.5-1.3-1.4 0-2.2 1.4-2.2 3.3Z" />
+          <path {...pathProps} d="m4 11 8-7 8 7v9h-5v-6H9v6H4v-9Z" />
         </svg>
       );
-    case 'bell':
+    case 'plan':
       return (
         <svg {...common}>
-          <path d="M7 17h10" />
-          <path d="M9 17V10a3 3 0 1 1 6 0v7" />
-          <path d="M10.5 20h3" />
+          <path {...pathProps} d="M5 4h14v16H5V4ZM8 8h8M8 12h8M8 16h5" />
         </svg>
       );
-    case 'desktop':
+    case 'refresh':
       return (
         <svg {...common}>
-          <path d="M4 5.5h16v10H4v-10Z" />
-          <path d="M9 19h6" />
-          <path d="M12 15.5V19" />
+          <path {...pathProps} d="M20 7v5h-5M4 17v-5h5M18.2 12A6.4 6.4 0 0 0 7.1 7.5L4 12M5.8 12a6.4 6.4 0 0 0 11.1 4.5L20 12" />
         </svg>
       );
-    case 'mail':
+    case 'search':
       return (
         <svg {...common}>
-          <path d="M4 6.5h16v11H4v-11Z" />
-          <path d="m4.5 7 7.5 6 7.5-6" />
+          <path {...pathProps} d="m20 20-4.5-4.5M18 10.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
         </svg>
       );
-    case 'phone':
+    case 'upload':
       return (
         <svg {...common}>
-          <path d="M8 3.5h8v17H8v-17Z" />
-          <path d="M11 17.5h2" />
-        </svg>
-      );
-    case 'info':
-      return (
-        <svg {...common} viewBox="0 0 16 16" width="16" height="16">
-          <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12Z" />
-          <path d="M8 7.2v3.4" />
-          <path d="M8 5.3h.01" />
-        </svg>
-      );
-    case 'menu':
-      return (
-        <svg {...common}>
-          <path d="M5 7h14" />
-          <path d="M5 12h14" />
-          <path d="M5 17h14" />
-        </svg>
-      );
-    case 'profile':
-      return (
-        <svg {...common}>
-          <path d="M12 11.2a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2Z" fill="currentColor" stroke="none" />
-          <path d="M5.2 20c.8-4 3-6 6.8-6s6 2 6.8 6H5.2Z" fill="currentColor" stroke="none" />
-        </svg>
-      );
-    case 'shield':
-      return (
-        <svg {...common}>
-          <path d="M12 3 5.5 5.4v5.2c0 4.2 2.4 7.5 6.5 9.4 4.1-1.9 6.5-5.2 6.5-9.4V5.4L12 3Z" fill="currentColor" stroke="none" />
-          <path d="M12 6v10" stroke="#fff" strokeWidth="2.1" />
-          <path d="M8.3 10.2h7.4" stroke="#fff" strokeWidth="2.1" />
-        </svg>
-      );
-    case 'login':
-      return (
-        <svg {...common}>
-          <path d="M13 5h6v14h-6" strokeWidth="2.5" />
-          <path d="M4 12h10" strokeWidth="2.5" />
-          <path d="m10 7 5 5-5 5" strokeWidth="2.5" />
-        </svg>
-      );
-    case 'password':
-      return (
-        <svg {...common}>
-          <path d="M5 9.2h14" strokeWidth="2.4" />
-          <path d="M7 17h10" strokeWidth="2.4" />
-          <path d="M7 6.5 8.7 10" strokeWidth="2.4" />
-          <path d="m12 6.5-.1 3.5" strokeWidth="2.4" />
-          <path d="M17 6.5 15.3 10" strokeWidth="2.4" />
-        </svg>
-      );
-    case 'wallet':
-      return (
-        <svg {...common}>
-          <path d="M4 7.5h15a2 2 0 0 1 2 2v8H5.5A2.5 2.5 0 0 1 3 15V6.5A2.5 2.5 0 0 1 5.5 4H18v3.5" strokeWidth="2.4" />
-          <path d="M15.5 12h5v4h-5a2 2 0 0 1 0-4Z" strokeWidth="2.4" />
-        </svg>
-      );
-    case 'cash':
-      return (
-        <svg {...common}>
-          <path d="M4 7h16v10H4V7Z" strokeWidth="2.3" />
-          <path d="M8 7v10" strokeWidth="2.3" />
-          <path d="M16 7v10" strokeWidth="2.3" />
-          <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" strokeWidth="2.3" />
+          <path {...pathProps} d="M12 16V4m0 0 4 4m-4-4-4 4M5 16v4h14v-4" />
         </svg>
       );
   }
+}
+
+function linePath(points: number[][]) {
+  return points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+}
+
+function seasonClass(season: Season) {
+  return season === 'Пик' ? 'peak' : season === 'Рост' ? 'growth' : 'decline';
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value) + ' ₽';
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(
+    value,
+  ) + '%';
+}
+
+function formatCompact(value: number) {
+  if (value < 50) return value.toFixed(1);
+  return Math.round(value).toString();
+}
+
+function heatColor(value: number) {
+  const hue = Math.round(7 + value * 142);
+  const lightness = Math.round(75 - value * 10);
+  return `hsl(${hue} 58% ${lightness}%)`;
 }
 
 export default App;
